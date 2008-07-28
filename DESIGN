@@ -1,0 +1,22 @@
+* Basic idea
+** Similar to java nlp framework, but in python
+** Prototype design in python, implement any performace-dependent components in C
+* Goals
+** Easy to use
+** Pythonic
+** Fast 
+* Timeline
+** Prototype counter / countermap
+** Naive Bayes
+*** Test that basic counter stuff works
+** FunctionMinimizer (as iterable?) / DifferentiableFunction
+** Encoding / Decoding / IndexLinearizer (fast vector indexing operations)
+** Maximum Entropy Model
+** Fast math operations
+*** Approximate operations
+*** Optimized vector operations
+*** Thread worker pools
+** Chain models (HMM / MEMM)
+*** Testing mostly
+** Computationally intensive chain-models (CRF)
+*** Test how well the framework scales (can it handle encodings / low-level access etc.)
