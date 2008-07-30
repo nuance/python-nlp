@@ -20,13 +20,24 @@ class Counter(defaultdict):
 
 	def normalize(self):
 		sum = self.total_count()
-		items = self.items()
 
-		for (key, value) in items:
+		for (key, value) in self.items():
 			self[key] = value / sum
 
 	def __str__(self):
 		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
+
+	def __imul__(self, other):
+		for (key, value) in other.items():
+			self[key] *= value
+
+		return self
+
+	def __iadd__(self, other):
+		for (key, value) in other.items():
+			self[key] += value
+
+		return self
 
 def test():
 	all_spam = Counter()
@@ -61,6 +72,30 @@ def test():
 	print "Half spam: %s" % half_spam
 
 	del(half_spam)
+
+	amul = Counter()
+	amul['bob'] = 2
+	bmul = Counter()
+	bmul['bob'] = 4
+
+	amul *= bmul
+
+	assert(amul['bob'] == 8)
+	assert(bmul['bob'] == 4)
+
+	del(amul)
+	del(bmul)
+	
+	aadd = Counter()
+	aadd['bob'] = 2
+	badd = Counter()
+	badd['bob'] = 4
+
+	aadd += badd
+
+	assert(aadd['bob'] == 6)
+	assert(badd['bob'] == 4)
+	
 
 if __name__ == "__main__":
 	test()
