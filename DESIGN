@@ -1,3 +1,4 @@
+-*- mode:org -*-
 * Basic idea
 ** Similar to java nlp framework, but in python
 ** Prototype design in python, implement any performace-dependent components in C
