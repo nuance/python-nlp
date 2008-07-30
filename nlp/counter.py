@@ -25,6 +25,9 @@ class Counter(defaultdict):
 		for (key, value) in items:
 			self[key] = value / sum
 
+	def __str__(self):
+		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
+
 def test():
 	all_spam = Counter()
 	all_spam['spam'] = 2
@@ -38,6 +41,8 @@ def test():
 	assert(all_spam['ham'] == 0.0)
 	assert(all_spam.arg_max() == 'spam')
 
+	print "All spam: %s" % all_spam
+	
 	del(all_spam)
 
 	half_spam = Counter()
@@ -52,6 +57,8 @@ def test():
 	assert(half_spam['spam'] == 0.5)
 	assert(half_spam['ham'] == 0.5)
 	assert(half_spam.arg_max() in ('spam', 'ham'))
+
+	print "Half spam: %s" % half_spam
 
 	del(half_spam)
 
