@@ -3,16 +3,15 @@ from counter import Counter
 
 class NaiveBayesClassifier:
 	def extract_features(self, datum):
-		features = list()
 		for word in datum.split():
-			features.append(word)
+			yield word
 		for char in datum:
-			features.append(char)
+			yield char
 		last_char = ''
 		for char in datum:
-			features.append(last_char+char)
+			yield last_char+char
 			last_char = char
-		return features
+		yield last_char
 	
 	def train(self, labeled_data):
 		self.feature_distribution = CounterMap()
