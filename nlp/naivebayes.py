@@ -13,7 +13,7 @@ class NaiveBayesClassifier:
 			yield last_last_char + last_char + char
 			last_last_char = last_char
 			last_char = char
-	
+
 	def train(self, labeled_data):
 		self.feature_distribution = CounterMap()
 		labels = set()
@@ -29,7 +29,7 @@ class NaiveBayesClassifier:
 					self.feature_distribution[feature][label] = 0.01
 
 		self.feature_distribution.normalize()
-		
+
 	def label(self, datum):
 		label_distribution = Counter()
 
@@ -41,7 +41,7 @@ class NaiveBayesClassifier:
 def read_delimited_data(file_name):
 	delimited_file = open(file_name, "r")
 	pairs = list()
-	
+
 	for line in delimited_file.readlines():
 		pair = line.rstrip().split("\t")
 		pair.reverse()
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 	print "*** Naive Bayes Classifier ***"
 	training_data = read_delimited_data("data/pnp-train.txt")
 	testing_data = read_delimited_data("data/pnp-test.txt")
-	
+
 	classifier = NaiveBayesClassifier()
 	classifier.train(training_data)
 
