@@ -3,22 +3,30 @@ from counter import Counter
 
 class NaiveBayesClassifier:
 	def extract_features(self, datum):
-		for word in datum.split():
-			yield word
-		for char in datum:
-			yield char
+		# for word in datum.split():
+		# yield word
+		last_last_char = ''
 		last_char = ''
 		for char in datum:
+			yield char
 			yield last_char+char
+			yield last_last_char + last_char + char
+			last_last_char = last_char
 			last_char = char
-		yield last_char
 	
 	def train(self, labeled_data):
 		self.feature_distribution = CounterMap()
+		labels = set()
 
 		for (datum, label) in labeled_data:
+			labels.add(label)
 			for feature in self.extract_features(datum):
 				self.feature_distribution[feature][label] += 1
+
+		for feature in self.feature_distribution.iterkeys():
+			for label in labels:
+				if self.feature_distribution[feature][label] == 0.0:
+					self.feature_distribution[feature][label] = 0.01
 
 		self.feature_distribution.normalize()
 		
