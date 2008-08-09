@@ -4,6 +4,9 @@ from collections import defaultdict
 import itertools
 import time
 
+from counter import Counter
+from countermap import CounterMap
+
 def main():
 	key_src = range(10000)
 	iter_src = array('i')
@@ -31,6 +34,9 @@ def main():
 	last = time.time()
 	tla = long_array_init(iter_src)
 	print "%s: %f" % ("tla", time.time()-last)
+	last = time.time()
+	cnt = counter_init(iter_src)
+	print "%s: %f" % ("counter", time.time()-last)
 
 	#### Random access
 	print "Random Access"
@@ -41,7 +47,7 @@ def main():
 
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla), ("td", "tdd", "tl", "tda", "tla")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
 		rand_access(container, rand_access_src)
 		print "%s: %f" % (name, time.time()-last)
 		last = time.time()
@@ -50,7 +56,7 @@ def main():
 	print "Iteration Access"
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla), ("td", "tdd", "tl", "tda", "tla")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
 		iter_access(container, 1000, 'values' in dir(container))
 		print "%s: %f" % (name, time.time()-last)
 		last = time.time()
@@ -60,7 +66,7 @@ def main():
 	stride_src = sorted(rand_access_src)
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla), ("td", "tdd", "tl", "tda", "tla")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
 		for pos in stride_src:
 			temp = container[pos]
 		print "%s: %f" % (name, time.time()-last)
@@ -81,7 +87,7 @@ def main():
 
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla), ("td", "tdd", "tl", "tda", "tla")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
 		for pos in access_order:
 			temp = container[pos]
 		print "%s: %f" % (name, time.time()-last)
@@ -123,6 +129,18 @@ def long_array_init(iter_src):
 	for i in iter_src:
 		test_long_array[i] += 1
 	return test_long_array
+
+def counter_init(iter_src):
+	test_counter = Counter()
+	for i in iter_src:
+		test_counter[i] += 1
+	return test_counter
+
+def countermap_init(iter_src):
+	test_countermap = CounterMap()
+	for i in iter_src:
+		test_countermap[i] += 1
+	return test_countermap
 
 def rand_access(container, iteration):
 	temp_value = 0.0
