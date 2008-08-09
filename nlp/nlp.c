@@ -91,8 +91,6 @@ cnter_normalize(cnterobject *dd)
 		sum += PyFloat_AsDouble(value);
 	}
 	
-	printf("sum: %f\n", sum);
-	
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) / sum);
@@ -148,22 +146,44 @@ cnter_arg_max(cnterobject *dd)
 PyDoc_STRVAR(cnter_arg_max_doc, "D.arg_max() -> arg max of the items in D");
 
 static PyObject *
-cnter_imul(cnterobject *dd, PyObject *other_cnter)
+cnter_imul(cnterobject *dd, PyObject *other)
 {
-	Py_INCREF(Py_None);
-	return Py_None;
-}
+	Py_ssize_t i;
+	PyObject *key, *value;
+	// TODO: check that other is a counter
+	cnterobject *other_cnter = (cnterobject*)other;
 
-PyDoc_STRVAR(cnter_imul_doc, "D *= a -> key-wise multiplies D by values in other counter");
+	i = 0;
+	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * PyFloat_AsDouble(otherValue));
+		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+		Py_DECREF(value);
+	}
+	
+	Py_INCREF((PyObject*)dd);
+	return (PyObject*)dd;
+}
 
 static PyObject *
-cnter_iadd(cnterobject *dd, PyObject *other_cnter)
+cnter_iadd(cnterobject *dd, PyObject *other)
 {
-	Py_INCREF(Py_None);
-	return Py_None;
-}
+	Py_ssize_t i;
+	PyObject *key, *value;
+	// TODO: check that other is a counter
+	cnterobject *other_cnter = (cnterobject*)other;
 
-PyDoc_STRVAR(cnter_iadd_doc, "D *= a -> key-wise adds D by values in other counter");
+	i = 0;
+	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + PyFloat_AsDouble(otherValue));
+		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+		Py_DECREF(value);
+	}
+
+	Py_INCREF((PyObject*)dd);
+	return (PyObject*)dd;
+}
 
 static PyMethodDef cnter_methods[] = {
 	{"__missing__", (PyCFunction)cnter_missing, 1,
@@ -180,10 +200,6 @@ static PyMethodDef cnter_methods[] = {
 	 cnter_total_count_doc},
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
 	 cnter_arg_max_doc},
-	{"__imul__", (PyCFunction)cnter_imul, 2,
-	 cnter_imul_doc},
-	{"__iadd__", (PyCFunction)cnter_iadd, 2,
-	 cnter_iadd_doc},
 	{NULL}
 };
 // 
@@ -262,6 +278,43 @@ A counter compares equal to a dict with the same items.\n\
 /* See comment in xxsubtype.c */
 #define DEFERRED_ADDRESS(ADDR) 0
 
+static PyNumberMethods cnter_as_number = {
+	0,				/*nb_add*/
+	0,				/*nb_subtract*/
+	0,				/*nb_multiply*/
+	0,				/*nb_divide*/
+	0,				/*nb_remainder*/
+	0,				/*nb_divmod*/
+	0,				/*nb_power*/
+	0,				/*nb_negative*/
+	0,				/*nb_positive*/
+	0,				/*nb_absolute*/
+	0,				/*nb_nonzero*/
+	0,				/*nb_invert*/
+	0,				/*nb_lshift*/
+	0,				/*nb_rshift*/
+	0,				/*nb_and*/
+	0,				/*nb_xor*/
+	0,				/*nb_or*/
+	0,				/*nb_coerce*/
+	0,				/*nb_int*/
+	0,				/*nb_long*/
+	0,				/*nb_float*/
+	0,				/*nb_oct*/
+	0, 				/*nb_hex*/
+	(binaryfunc) cnter_iadd,		/*nb_inplace_add*/
+	0,				/*nb_inplace_subtract*/
+	(binaryfunc) cnter_imul,		/*nb_inplace_multiply*/
+	0,				/*nb_inplace_divide*/
+	0,				/*nb_inplace_remainder*/
+	0,				/*nb_inplace_power*/
+	0,				/*nb_inplace_lshift*/
+	0,				/*nb_inplace_rshift*/
+	0,				/*nb_inplace_and*/
+	0,				/*nb_inplace_xor*/
+	0,				/*nb_inplace_or*/
+};
+
 static PyTypeObject cnter_type = {
 	PyObject_HEAD_INIT(DEFERRED_ADDRESS(&PyType_Type))
 	0,				/* ob_size */
@@ -275,7 +328,7 @@ static PyTypeObject cnter_type = {
 	0,				/* tp_setattr */
 	0,				/* tp_compare */
 	(reprfunc)cnter_repr,		/* tp_repr */
-	0,				/* tp_as_number */
+	&cnter_as_number,				/* tp_as_number */
 	0,				/* tp_as_sequence */
 	0,				/* tp_as_mapping */
 	0,	       			/* tp_hash */
