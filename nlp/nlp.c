@@ -85,18 +85,17 @@ cnter_normalize(cnterobject *dd)
 	Py_ssize_t i;
 	PyObject *key, *value;
 	double sum = 0.0;
-	Py_ssize_t len = PyDict_Size((PyObject*)&(dd->dict));
-	double values[len];
-	
+
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		values[i] = PyFloat_AsDouble(value);
-		sum += values[i];		
+		sum += PyFloat_AsDouble(value);
 	}
 	
+	printf("sum: %f\n", sum);
+	
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		PyObject *newValue = PyFloat_FromDouble(values[i] / sum);
+		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) / sum);
 		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
 		Py_DECREF(value);
 	}
@@ -181,9 +180,9 @@ static PyMethodDef cnter_methods[] = {
 	 cnter_total_count_doc},
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
 	 cnter_arg_max_doc},
-	{"__imul__", (PyCFunction)cnter_imul, 1,
+	{"__imul__", (PyCFunction)cnter_imul, 2,
 	 cnter_imul_doc},
-	{"__iadd__", (PyCFunction)cnter_iadd, 1,
+	{"__iadd__", (PyCFunction)cnter_iadd, 2,
 	 cnter_iadd_doc},
 	{NULL}
 };
