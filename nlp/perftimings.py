@@ -6,6 +6,7 @@ import time
 
 from counter import Counter
 from countermap import CounterMap
+from nlp import counter
 
 def main():
 	key_src = range(10000)
@@ -37,6 +38,9 @@ def main():
 	last = time.time()
 	cnt = counter_init(iter_src)
 	print "%s: %f" % ("counter", time.time()-last)
+	last = time.time()
+	cCnt = cCounter_init(iter_src)
+	print "%s: %f" % ("cCounter", time.time()-last)
 
 	#### Random access
 	print "Random Access"
@@ -47,7 +51,7 @@ def main():
 
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt, cCnt), ("td", "tdd", "tl", "tda", "tla", "cnt", "cCnt")):
 		rand_access(container, rand_access_src)
 		print "%s: %f" % (name, time.time()-last)
 		last = time.time()
@@ -56,7 +60,7 @@ def main():
 	print "Iteration Access"
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt, cCnt), ("td", "tdd", "tl", "tda", "tla", "cnt", "cCnt")):
 		iter_access(container, 1000, 'values' in dir(container))
 		print "%s: %f" % (name, time.time()-last)
 		last = time.time()
@@ -66,7 +70,7 @@ def main():
 	stride_src = sorted(rand_access_src)
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt, cCnt), ("td", "tdd", "tl", "tda", "tla", "cnt", "cCnt")):
 		for pos in stride_src:
 			temp = container[pos]
 		print "%s: %f" % (name, time.time()-last)
@@ -87,7 +91,7 @@ def main():
 
 	last = time.time()
 
-	for (container, name) in zip((td, tdd, tl, tda, tla, cnt), ("td", "tdd", "tl", "tda", "tla", "cnt")):
+	for (container, name) in zip((td, tdd, tl, tda, tla, cnt, cCnt), ("td", "tdd", "tl", "tda", "tla", "cnt", "cCnt")):
 		for pos in access_order:
 			temp = container[pos]
 		print "%s: %f" % (name, time.time()-last)
@@ -132,6 +136,12 @@ def long_array_init(iter_src):
 
 def counter_init(iter_src):
 	test_counter = Counter()
+	for i in iter_src:
+		test_counter[i] += 1
+	return test_counter
+
+def cCounter_init(iter_src):
+	test_counter = counter()
 	for i in iter_src:
 		test_counter[i] += 1
 	return test_counter

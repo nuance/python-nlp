@@ -1,5 +1,5 @@
 from countermap import CounterMap
-from counter import Counter
+from nlp import counter
 
 class NaiveBayesClassifier:
 	def extract_features(self, datum):
@@ -31,7 +31,7 @@ class NaiveBayesClassifier:
 		self.feature_distribution.normalize()
 
 	def label(self, datum):
-		label_distribution = Counter()
+		label_distribution = counter()
 
 		for feature in self.extract_features(datum):
 			label_distribution *= self.feature_distribution[feature]

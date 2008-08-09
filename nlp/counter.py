@@ -55,6 +55,12 @@ def test():
 	assert(all_spam['ham'] == 0.0)
 	assert(all_spam.arg_max() == 'spam')
 
+	assert('spam' in all_spam.keys())
+	assert('ham' in all_spam.keys())
+
+	assert(len(all_spam.keys()) == 2)
+	assert(len(all_spam.values()) == 2)
+
 	print "All spam: %s" % all_spam
 	
 	del(all_spam)
@@ -64,6 +70,7 @@ def test():
 	half_spam['ham'] += 1
 
 	assert(half_spam.total_count() == 2)
+	assert(len(half_spam.keys()) == 2)
 	assert(half_spam.arg_max() in ('spam', 'ham'))
 
 	half_spam.normalize()
@@ -71,6 +78,7 @@ def test():
 	assert(half_spam['spam'] == 0.5)
 	assert(half_spam['ham'] == 0.5)
 	assert(half_spam.arg_max() in ('spam', 'ham'))
+	assert(len(half_spam.keys()) == 2)
 
 	print "Half spam: %s" % half_spam
 

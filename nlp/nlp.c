@@ -186,7 +186,7 @@ cnter_iadd(cnterobject *dd, PyObject *other)
 }
 
 static PyMethodDef cnter_methods[] = {
-	{"__missing__", (PyCFunction)cnter_missing, 1,
+	{"__missing__", (PyCFunction)cnter_missing, METH_O,
 	 cnter_missing_doc},
 	{"copy", (PyCFunction)cnter_copy, METH_NOARGS,
 	 cnter_copy_doc},
@@ -241,12 +241,6 @@ static int
 cnter_traverse(PyObject *self, visitproc visit, void *arg)
 {
 	return PyDict_Type.tp_traverse(self, visit, arg);
-}
-
-static int
-cnter_tp_clear(cnterobject *dd)
-{
-	return PyDict_Type.tp_clear((PyObject *)dd);
 }
 
 static int
@@ -341,7 +335,7 @@ static PyTypeObject cnter_type = {
 		Py_TPFLAGS_HAVE_WEAKREFS,	/* tp_flags */
 	cnter_doc,			/* tp_doc */
 	cnter_traverse,		/* tp_traverse */
-	(inquiry)cnter_tp_clear,	/* tp_clear */
+	0,				/* tp_clear */
 	0,				/* tp_richcompare */
 	0,				/* tp_weaklistoffset*/
 	0,				/* tp_iter */

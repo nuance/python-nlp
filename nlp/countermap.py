@@ -1,9 +1,9 @@
 from collections import defaultdict
-from counter import Counter
+from nlp import counter
 
 class CounterMap(defaultdict):
 	def __init__(self):
-		super(CounterMap, self).__init__(lambda:Counter())
+		super(CounterMap, self).__init__(lambda:counter())
 
 	def normalize(self):
 		for key in self.iterkeys():
