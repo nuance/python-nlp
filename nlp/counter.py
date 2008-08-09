@@ -5,6 +5,9 @@ class Counter(defaultdict):
 	def __init__(self):
 		super(Counter, self).__init__(lambda:0.0)
 
+	def __init__(self, *args):
+		super(Counter, self).__init__(lambda:0.0, *args)
+
 	# I feel like there's a better way to do this...
 	def arg_max(self):
 		(max_key, max_value) = (None, None)
