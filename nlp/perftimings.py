@@ -96,6 +96,47 @@ def main():
 			temp = container[pos]
 		print "%s: %f" % (name, time.time()-last)
 		last = time.time()
+		
+	#### Test counter-specifics
+	print "arg_max"
+	last = time.time()
+	
+	for (container, name) in zip((cnt, cCnt), ("cnt", "cCnt")):
+		temp = container.arg_max()
+		print "%s: %f (%s)" % (name, time.time()-last, temp)
+		last = time.time()
+	
+	print "total_count"
+	last = time.time()
+
+	for (container, name) in zip((cnt, cCnt), ("cnt", "cCnt")):
+		temp = container.total_count()
+		print "%s: %f (%f)" % (name, time.time()-last, temp)
+		last = time.time()
+	
+	print "normalize"
+	last = time.time()
+
+	for (container, name) in zip((cnt, cCnt), ("cnt", "cCnt")):
+		container.normalize()
+		print "%s: %f" % (name, time.time()-last)
+		last = time.time()
+
+	print "arg_max"
+	last = time.time()
+
+	for (container, name) in zip((cnt, cCnt), ("cnt", "cCnt")):
+		temp = container.arg_max()
+		print "%s: %f (%s)" % (name, time.time()-last, temp)
+		last = time.time()
+
+	print "total_count"
+	last = time.time()
+
+	for (container, name) in zip((cnt, cCnt), ("cnt", "cCnt")):
+		temp = container.total_count()
+		print "%s: %f (%f)" % (name, time.time()-last, temp)
+		last = time.time()
 
 def dict_init(iter_src):
 	print "dict"

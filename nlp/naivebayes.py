@@ -1,5 +1,4 @@
 from countermap import CounterMap
-from nlp import counter
 
 class NaiveBayesClassifier:
 	def extract_features(self, datum):
@@ -31,12 +30,15 @@ class NaiveBayesClassifier:
 		self.feature_distribution.normalize()
 
 	def label(self, datum):
-		label_distribution = counter()
+		label_distribution = None
 
 		for feature in self.extract_features(datum):
-			label_distribution *= self.feature_distribution[feature]
-
-		return label_distribution.arg_max()
+			if label_distribution:
+				label_distribution *= self.feature_distribution[feature]
+			else:
+				label_distribution = self.feature_distribution[feature]
+		
+ 		return label_distribution.arg_max()
 
 def read_delimited_data(file_name):
 	delimited_file = open(file_name, "r")

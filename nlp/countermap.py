@@ -1,10 +1,14 @@
 from collections import defaultdict
 from nlp import counter
+from counter import Counter
 
 class CounterMap(defaultdict):
-	def __init__(self):
-		super(CounterMap, self).__init__(lambda:counter())
-
+	def __init__(self, use_c_counter = True):
+		if use_c_counter:
+			super(CounterMap, self).__init__(lambda:counter())
+		else:
+			super(CounterMap, self).__init__(lambda:Counter())
+	
 	def normalize(self):
 		for key in self.iterkeys():
 			self[key].normalize()
