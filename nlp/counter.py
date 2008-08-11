@@ -13,7 +13,7 @@ class Counter(defaultdict):
 		(max_key, max_value) = (None, None)
 
 		for (key, value) in self.iteritems():
-			if not max_value or value > max_value:
+			if not max_key or value > max_value:
 				(max_key, max_value) = (key, value)
 
 		return max_key
