@@ -95,7 +95,7 @@ cnter_normalize(cnterobject *dd)
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) / sum);
 		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
-		Py_DECREF(value);
+		Py_DECREF(newValue);
 	}
 	
 	Py_INCREF(Py_None);
@@ -115,7 +115,7 @@ cnter_total_count(cnterobject *dd)
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 		sum += PyFloat_AsDouble(value);
 	}
-	
+
 	return PyFloat_FromDouble(sum);
 }
 
@@ -134,12 +134,18 @@ cnter_arg_max(cnterobject *dd)
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 		running = PyFloat_AsDouble(value);
 		if (arg_max == NULL || max < running) {
+			Py_XDECREF(arg_max);
 			arg_max = key;
+			Py_INCREF(arg_max);
 			max = running;
 		}
 	}
 	
-	Py_INCREF(arg_max);
+	if (!arg_max) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+	
 	return arg_max;
 }
 
@@ -151,11 +157,26 @@ cnter_imul(cnterobject *dd, PyObject *other)
 	Py_ssize_t i;
 	PyObject *key, *value;
 	// TODO: check that other is a counter
+	
 	cnterobject *other_cnter = (cnterobject*)other;
+
+	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
+	i = 0;
+	PyObject *defaultValue = PyFloat_FromDouble(0.0);
+	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
+		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
+		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
+		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0)
+			return NULL;
+		else if (contains < 0)
+			return NULL;
+	}
 
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+		if (otherValue == NULL) otherValue = defaultValue;
+		
 		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * PyFloat_AsDouble(otherValue));
 		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
 		Py_DECREF(value);
@@ -173,9 +194,23 @@ cnter_iadd(cnterobject *dd, PyObject *other)
 	// TODO: check that other is a counter
 	cnterobject *other_cnter = (cnterobject*)other;
 
+	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
+	i = 0;
+	PyObject *defaultValue = PyFloat_FromDouble(0.0);
+	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
+		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
+		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
+		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0)
+			return NULL;
+		else if (contains < 0)
+			return NULL;
+	}
+
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+		if (otherValue == NULL) otherValue = defaultValue;
+		
 		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + PyFloat_AsDouble(otherValue));
 		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
 		Py_DECREF(value);

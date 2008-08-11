@@ -31,14 +31,20 @@ class Counter(defaultdict):
 		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
 
 	def __imul__(self, other):
-		for (key, value) in other.items():
-			self[key] *= value
+		keys = set(self.iterkeys())
+		keys.update(other.iterkeys())
+		
+		for key in keys:
+			self[key] *= other[key]
 
 		return self
 
 	def __iadd__(self, other):
-		for (key, value) in other.items():
-			self[key] += value
+		keys = set(self.iterkeys())
+		keys.update(other.iterkeys())
+		
+		for key in keys:
+			self[key] += other[key]
 
 		return self
 
@@ -86,13 +92,17 @@ def test():
 
 	amul = Counter()
 	amul['bob'] = 2
+	amul['jim'] = 2
 	bmul = Counter()
 	bmul['bob'] = 4
 
 	amul *= bmul
+	bmul *= amul
 
 	assert(amul['bob'] == 8)
-	assert(bmul['bob'] == 4)
+	assert(bmul['bob'] == 32)
+	assert(amul['jim'] == 0)
+	assert(bmul['jim'] == 0)
 
 	del(amul)
 	del(bmul)

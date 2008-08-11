@@ -44,13 +44,17 @@ def test():
 
 	amul = counter()
 	amul['bob'] = 2
+	amul['jim'] = 2
 	bmul = counter()
 	bmul['bob'] = 4
 
 	amul *= bmul
+	bmul *= amul
 
 	assert(amul['bob'] == 8)
-	assert(bmul['bob'] == 4)
+	assert(bmul['bob'] == 32)
+	assert(amul['jim'] == 0)
+	assert(bmul['jim'] == 0)
 
 	del(amul)
 	del(bmul)
