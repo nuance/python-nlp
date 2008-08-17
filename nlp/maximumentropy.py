@@ -4,6 +4,7 @@ from countermap import CounterMap
 from nlp import counter
 from function import Function
 from minimizer import Minimizer
+from itertools import izip, chain, repeat
 
 class MaxEntWeightFunction(Function):
 	sigma = 1.0
@@ -16,7 +17,7 @@ class MaxEntWeightFunction(Function):
 		self.features = features
 
 	def get_log_probabilities(self, datum_features, weights):
-		log_probs = counter((label, self.weights[label] * datum_features) for label in self.labels)
+		log_probs = counter((label, weights[label] * datum_features) for label in self.labels)
 		log_probs.log_normalize()
 		return log_probs
 
@@ -27,27 +28,25 @@ class MaxEntWeightFunction(Function):
 		log_probs = (self.get_log_probabilities(labeled_datum, weights) for labeled_datum in self.labeled_extracted_features)
 		objective = -sum(log_probs[index][label] for (index, (label,_)) in enumerate(self.labeled_extracted_features))
 
-		for label in self.labels:
-			for feature in self.features:
-				empirical_count = 0.0
-				expected_count = 0.0
+		for (label, feature) in chain(izip(repeat(label, len(self.features)), self.features) for label in self.labels):
+			empirical_count = 0.0
+			expected_count = 0.0
 
-				for (index, (datum_label, datum_features)) in enumerate(self.labeled_extracted_features):
-					if feature in datum_features:
-						if datum_label == label:
-							empirical_count += datum_features[feature]
-						expected_count += exp(log_probs[index][label]) * datum_features[feature]
+			for (index, (datum_label, datum_features)) in enumerate(self.labeled_extracted_features):
+				if feature in datum_features:
+					if datum_label == label:
+						empirical_count += datum_features[feature]
+					expected_count += exp(log_probs[index][label]) * datum_features[feature]
 
-					gradient[label][feature] = expected_count - empirical_count
+				gradient[label][feature] = expected_count - empirical_count
 
 		# Apply a penalty (e.g. smooth the results)
 		penalty = 0.0
 
-		for label in self.labels:
-			for feature in self.features:
-				weight = weights[feature][label]
-				penalty += weight**2
-				gradient[dim] += (weight / (self.sigma**2))
+		for (label, feature) in chain(izip(repeat(label, len(self.features)), self.features) for label in self.labels):
+			weight = weights[feature][label]
+			penalty += weight**2
+			gradient[label][feature] += (weight / (self.sigma**2))
 
 		penalty /= 2 * self.sigma**2
 		objective += penalty
