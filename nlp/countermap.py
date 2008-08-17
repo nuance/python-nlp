@@ -1,6 +1,7 @@
 from collections import defaultdict
 from nlp import counter
 from counter import Counter
+from itertools import chain, izip, repeat
 
 class CounterMap(defaultdict):
 	def __init__(self, use_c_counter = True):
@@ -8,10 +9,15 @@ class CounterMap(defaultdict):
 			super(CounterMap, self).__init__(lambda:counter())
 		else:
 			super(CounterMap, self).__init__(lambda:Counter())
-	
+
 	def normalize(self):
 		for key in self.iterkeys():
 			self[key].normalize()
+
+	def linearize(self):
+		"""Return an iterator over (key, subkey) pairs (so we can view a countermap as a vector)
+		FIXME: this isn't guaranteed to return the same thing every time"""
+		return chain([izip(repeat(key, len(counter.iteritems())), counter.iteritems()) for (key, counter) in self.iteritems()])
 
 	def __str__(self):
 		string = ""
