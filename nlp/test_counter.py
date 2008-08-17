@@ -1,4 +1,5 @@
 from nlp import counter
+from math import log
 
 def test():
 	all_spam = counter()
@@ -41,6 +42,19 @@ def test():
 	print "Half spam: %s" % half_spam
 
 	del(half_spam)
+
+	log_third_spam = counter()
+	log_third_spam['spam'] += log(1)
+	log_third_spam['ham'] += log(2)
+
+	log_third_spam.log_normalize()
+
+	assert(log_third_spam['spam'] == log(1)-log(3))
+	assert(log_third_spam['ham'] == log(2)-log(3))
+
+	print "Log third spam: %s" % log_third_spam
+
+	del(log_third_spam)
 
 	amul = counter()
 	amul['bob'] = 2

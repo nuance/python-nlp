@@ -1,4 +1,5 @@
 from collections import defaultdict
+from math import log, exp
 
 class Counter(defaultdict):
 
@@ -26,6 +27,12 @@ class Counter(defaultdict):
 
 		for (key, value) in self.items():
 			self[key] = value / sum
+
+	def log_normalize(self):
+		log_sum = log(sum(exp(val) for val in self.itervalues()))
+
+		for key in self.iterkeys():
+			self[key] -= log_sum
 
 	def __str__(self):
 		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
@@ -80,7 +87,7 @@ def test():
 	assert(half_spam.arg_max() in ('spam', 'ham'))
 
 	half_spam.normalize()
-
+	
 	assert(half_spam['spam'] == 0.5)
 	assert(half_spam['ham'] == 0.5)
 	assert(half_spam.arg_max() in ('spam', 'ham'))
@@ -89,6 +96,19 @@ def test():
 	print "Half spam: %s" % half_spam
 
 	del(half_spam)
+
+	log_third_spam = Counter()
+	log_third_spam['spam'] += log(1)
+	log_third_spam['ham'] += log(2)
+
+	log_third_spam.log_normalize()
+
+	assert(log_third_spam['spam'] == log(1)-log(3))
+	assert(log_third_spam['ham'] == log(2)-log(3))
+
+	print "Log third spam: %s" % log_third_spam
+
+	del(log_third_spam)
 
 	amul = Counter()
 	amul['bob'] = 2
