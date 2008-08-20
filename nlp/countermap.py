@@ -14,6 +14,10 @@ class CounterMap(defaultdict):
 		for key in self.iterkeys():
 			self[key].normalize()
 
+	def log_normalize(self):
+		for key in self.iterkeys():
+			self[key].log_normalize()
+
 	def linearize(self):
 		"""Return an iterator over (key, subkey) pairs (so we can view a countermap as a vector)
 		FIXME: this isn't guaranteed to return the same thing every time"""

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from math import log, exp
+from itertools import izip
 
 class Counter(defaultdict):
 
@@ -9,7 +10,8 @@ class Counter(defaultdict):
 	def __init__(self, *args):
 		super(Counter, self).__init__(lambda:0.0, *args)
 
-	# I feel like there's a better way to do this...
+	# I feel like there's a better way to do this... could use reduce, but
+	# that's about to be deprecated...
 	def arg_max(self):
 		(max_key, max_value) = (None, None)
 
@@ -37,6 +39,7 @@ class Counter(defaultdict):
 	def __str__(self):
 		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
 
+	# mul => element-wise multiplication
 	def __imul__(self, other):
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
@@ -46,6 +49,17 @@ class Counter(defaultdict):
 
 		return self
 
+	# mul => element-wise multiplication
+	def __mul__(self, other):
+		if isinstance(other, (int, long, float)):
+			return Counter((key, value * other) for (key, value) in self.iteritems())
+		
+		keys = set(self.iterkeys())
+		keys.update(other.iterkeys())
+		lval = Counter((key, self[key] * other[key]) for key in keys)
+
+		return lval
+
 	def __iadd__(self, other):
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
@@ -54,6 +68,16 @@ class Counter(defaultdict):
 			self[key] += other[key]
 
 		return self
+
+	def __isub__(self, other):
+		keys = set(self.iterkeys())
+		keys.update(other.iterkeys())
+		
+		for key in keys:
+			self[key] -= other[key]
+
+		return self
+		
 
 def test():
 	all_spam = Counter()

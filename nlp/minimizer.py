@@ -1,22 +1,22 @@
 import function
+from copy import copy
 from itertools import izip
+from time import time
 
 class Minimizer:
-	
-	max_iterations = 1000
+	max_iterations = 10000
 	sqr_convergence = 0.000000000001
 	step = 0.01
-	verbose = False
+	verbose = True
 
 	@classmethod
 	def minimize(cls, function, start):
 		converged = False
 		iteration = 0
 		point = start
+		last_time = time()
 		
 		while not converged:
-			if cls.verbose: print "*** Starting gradient descent iteration %d ***" % iteration
-			
 			(value, gradient) = function.value_and_gradient(point)
 			
 			next_point = [coord - cls.step * partial for (coord, partial) in izip(point, gradient)]
@@ -28,6 +28,46 @@ class Minimizer:
 				converged = True
 			
 			point = next_point
+
+			if cls.verbose and time()-last_time > 1:
+				print "*** Finished gradient descent iteration %d (objective: %f)***" % (iteration, value)
+				last_time = time()
+
+		return point
+
+	@classmethod
+	def minimize_map(cls, function, start_map):
+		converged = False
+		iteration = 0
+		point = start_map
+		last_time = time()
+
+		while not converged:
+			(value, gradient) = function.value_and_gradient(point)
+
+			next_point = type(point)()
+			for (key, counter) in point.iteritems():
+				next_point[key] = type(counter)()
+				for (sub_key, val) in counter.iteritems():
+					next_point[key][sub_key] = val
+			change = 0.0
+			
+			for (key, partials) in gradient.iteritems():
+				deltas =  partials * cls.step
+				next_point[key] -= deltas
+				change += sum(delta**2 for delta in deltas.values())
+			iteration += 1
+			
+			if change < cls.sqr_convergence:
+				converged = True
+			elif iteration > cls.max_iterations:
+				converged = True
+			
+			point = next_point
+
+			if cls.verbose and time()-last_time > 1:
+				print "*** Finished gradient descent iteration %d (objective: %f)***" % (iteration, value)
+				last_time = time()
 		
 		return point
 
