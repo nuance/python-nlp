@@ -117,9 +117,46 @@ def test():
 	assert(half_spam.arg_max() in ('spam', 'ham'))
 	assert(len(half_spam.keys()) == 2)
 
+	half_spam = half_spam * 2.0
+
+	assert(half_spam['spam'] == 1.0)
+	assert(half_spam['ham'] == 1.0)
+	assert(half_spam.arg_max() in ('spam', 'ham'))
+	assert(len(half_spam.keys()) == 2)
+
+	half_spam = half_spam * 0.5
+
+	assert(half_spam['spam'] == 0.5)
+	assert(half_spam['ham'] == 0.5)
+	assert(half_spam.arg_max() in ('spam', 'ham'))
+	assert(len(half_spam.keys()) == 2)
+
 	print "Half spam: %s" % half_spam
 
+	bob = half_spam * 2
+
+	assert(bob['spam'] == 1.0)
+	assert(bob['ham'] == 1.0)
+	assert(bob.arg_max() in ('spam', 'ham'))
+	assert(len(bob.keys()) == 2)
+
+	jim = bob * half_spam
+	
+	assert(jim['spam'] == 0.5)
+	assert(jim['ham'] == 0.5)
+	assert(jim.arg_max() in ('spam', 'ham'))
+	assert(len(jim.keys()) == 2)
+
+	bob -= jim
+
+	assert(bob['spam'] == 0.5)
+	assert(bob['ham'] == 0.5)
+	assert(bob.arg_max() in ('spam', 'ham'))
+	assert(len(bob.keys()) == 2)
+	
 	del(half_spam)
+	del(bob)
+	del(jim)
 
 	log_third_spam = Counter()
 	log_third_spam['spam'] += log(1)

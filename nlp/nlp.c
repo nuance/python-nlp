@@ -4,10 +4,13 @@
 /* counter type *********************************************************/
 
 typedef struct {
-	PyDictObject dict;
+  PyDictObject dict;
 } cnterobject;
 
 static PyTypeObject cnter_type; /* Forward */
+
+static int cnter_init(PyObject *self, PyObject *args, PyObject *kwds); /* Forward */
+static PyObject * cnter_repr(cnterobject *dd);
 
 PyDoc_STRVAR(cnter_missing_doc,
 "__missing__(key) # Called by __getitem__ for missing key; pseudo-code:\n\
@@ -215,6 +218,78 @@ cnter_imul(cnterobject *dd, PyObject *other)
 }
 
 static PyObject *
+cnter_scale(cnterobject *dd, PyObject *other)
+{
+  Py_ssize_t i;
+  PyObject *key, *value;
+  double scale;
+
+  if (PyInt_Check(other)) scale = (double)PyInt_AsLong(other);
+  else if (PyLong_Check(other)) scale = (double)PyLong_AsLong(other);
+  else scale = PyFloat_AsDouble(other);
+
+  cnterobject *ret_cnter = NULL;
+
+  ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
+  Py_INCREF((PyObject*)ret_cnter);
+
+  // Copy dd into ret_cnter
+  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)&(dd->dict)) == -1)
+   	return NULL;
+
+  i = 0;
+  while (PyDict_Next((PyObject*)&(ret_cnter->dict), &i, &key, &value)) {
+	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * scale);
+	PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
+	Py_DECREF(value);
+  }
+	
+  return (PyObject*)ret_cnter;
+}
+
+static PyObject *
+cnter_mul(cnterobject *dd, PyObject *other)
+{
+  Py_ssize_t i;
+  PyObject *key, *value;
+  // TODO: check that other is a counter or a number
+
+  if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
+	return cnter_scale(dd, other);
+
+  cnterobject *other_cnter = (cnterobject*)other;
+  cnterobject *ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
+  Py_INCREF((PyObject*)ret_cnter);
+
+  // Copy dd into ret_cnter
+  PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd);
+
+  // Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
+  i = 0;
+  PyObject *defaultValue = PyFloat_FromDouble(0.0);
+  while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
+	int contains = PyDict_Contains((PyObject*)&(ret_cnter->dict), key);
+	// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
+	if (contains == 0 && PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, defaultValue) < 0)
+	  return NULL;
+	else if (contains < 0)
+	  return NULL;
+  }
+
+  i = 0;
+  while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+	if (otherValue == NULL) otherValue = defaultValue;
+		
+	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * PyFloat_AsDouble(otherValue));
+	PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
+	Py_DECREF(value);
+  }
+	
+  return (PyObject*)ret_cnter;
+}
+
+static PyObject *
 cnter_iadd(cnterobject *dd, PyObject *other)
 {
 	Py_ssize_t i;
@@ -240,6 +315,40 @@ cnter_iadd(cnterobject *dd, PyObject *other)
 		if (otherValue == NULL) otherValue = defaultValue;
 		
 		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + PyFloat_AsDouble(otherValue));
+		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+		Py_DECREF(value);
+	}
+
+	Py_INCREF((PyObject*)dd);
+	return (PyObject*)dd;
+}
+
+static PyObject *
+cnter_isub(cnterobject *dd, PyObject *other)
+{
+	Py_ssize_t i;
+	PyObject *key, *value;
+	// TODO: check that other is a counter
+	cnterobject *other_cnter = (cnterobject*)other;
+
+	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
+	i = 0;
+	PyObject *defaultValue = PyFloat_FromDouble(0.0);
+	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
+		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
+		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
+		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0)
+			return NULL;
+		else if (contains < 0)
+			return NULL;
+	}
+
+	i = 0;
+	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+		if (otherValue == NULL) otherValue = defaultValue;
+		
+		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) - PyFloat_AsDouble(otherValue));
 		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
 		Py_DECREF(value);
 	}
@@ -311,19 +420,24 @@ cnter_traverse(PyObject *self, visitproc visit, void *arg)
 static int
 cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
-	PyObject *newargs;
-	int result;
-	if (args == NULL || !PyTuple_Check(args))
-		newargs = PyTuple_New(0);
-	else {
-		Py_ssize_t n = PyTuple_GET_SIZE(args);
-		newargs = PySequence_GetSlice(args, 0, n);
-	}
-	if (newargs == NULL)
-		return -1;
-	result = PyDict_Type.tp_init(self, newargs, kwds);
-	Py_DECREF(newargs);
-	return result;
+  PyObject *newargs;
+
+  if (args == NULL || !PyTuple_Check(args))
+	newargs = PyTuple_New(0);
+  else {
+	Py_INCREF(args);
+	newargs = args;
+  }
+
+  if (kwds == NULL || !PyDict_Check(kwds))
+	kwds = PyDict_New();
+  else
+	Py_INCREF(kwds);
+
+  int result = PyDict_Type.tp_init(self, newargs, kwds);
+  Py_DECREF(newargs);
+  Py_DECREF(kwds);
+  return result;
 }
 
 PyDoc_STRVAR(cnter_doc,
@@ -340,7 +454,7 @@ A counter compares equal to a dict with the same items.\n\
 static PyNumberMethods cnter_as_number = {
 	0,				/*nb_add*/
 	0,				/*nb_subtract*/
-	0,				/*nb_multiply*/
+    (binaryfunc) cnter_mul,				/*nb_multiply*/
 	0,				/*nb_divide*/
 	0,				/*nb_remainder*/
 	0,				/*nb_divmod*/
@@ -362,7 +476,7 @@ static PyNumberMethods cnter_as_number = {
 	0,				/*nb_oct*/
 	0, 				/*nb_hex*/
 	(binaryfunc) cnter_iadd,		/*nb_inplace_add*/
-	0,				/*nb_inplace_subtract*/
+    (binaryfunc) cnter_isub,				/*nb_inplace_subtract*/
 	(binaryfunc) cnter_imul,		/*nb_inplace_multiply*/
 	0,				/*nb_inplace_divide*/
 	0,				/*nb_inplace_remainder*/
@@ -397,7 +511,7 @@ static PyTypeObject cnter_type = {
 	0,				/* tp_setattro */
 	0,				/* tp_as_buffer */
 	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC |
-		Py_TPFLAGS_HAVE_WEAKREFS,	/* tp_flags */
+		Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,	/* tp_flags */
 	cnter_doc,			/* tp_doc */
 	cnter_traverse,		/* tp_traverse */
 	0,				/* tp_clear */
@@ -413,7 +527,7 @@ static PyTypeObject cnter_type = {
 	0,				/* tp_descr_get */
 	0,				/* tp_descr_set */
 	0,				/* tp_dictoffset */
-	cnter_init,			/* tp_init */
+	(initproc)cnter_init,			/* tp_init */
 	PyType_GenericAlloc,		/* tp_alloc */
 	0,				/* tp_new */
 	PyObject_GC_Del,		/* tp_free */

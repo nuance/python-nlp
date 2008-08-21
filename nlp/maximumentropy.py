@@ -26,10 +26,13 @@ class MaxEntWeightFunction(Function):
 		objective = 0.0
 		gradient = CounterMap(use_c_counter=False)
 
+		print "Calculating log probabilities..."
 		log_probs = [self.get_log_probabilities(features, weights) for (label, features) in self.labeled_extracted_features]
+		print "Calculating objective..."
 		objective = -sum(log_probs[index][label] for (index, (label,_)) in enumerate(self.labeled_extracted_features))
 
 		for label in self.labels:
+			print "Working on label %s" % label
 			for feature in self.features:
 				empirical_count = 0.0
 				expected_count = 0.0
@@ -82,11 +85,13 @@ class MaximumEntropyClassifier:
 		print "Optimizing weights..."
 		weight_function = MaxEntWeightFunction(labeled_features, self.labels, self.features)
 
+		print "Building initial dictionary..."
 		initial_weights = CounterMap(use_c_counter=False)
 		for label in self.labels:
 			for feature in self.features:
 				initial_weights[label][feature] += 1.0
 
+		print "Minimizing..."
 		self.weights = Minimizer.minimize_map(weight_function, initial_weights)
 
 	def train(self, labeled_data):
@@ -153,5 +158,5 @@ def toy_problem():
 if __name__ == "__main__":
  	print "*** Maximum Entropy Classifier ***"
 
-	toy_problem()
+	real_problem()
 
