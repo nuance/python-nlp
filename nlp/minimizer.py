@@ -43,15 +43,16 @@ class Minimizer:
 		last_time = time()
 
 		while not converged:
-			(value, gradient) = function.value_and_gradient(point)
-
+			tup = function.value_and_gradient(point)
+			(value, gradient) = tup
+			
 			next_point = type(point)()
 			for (key, counter) in point.iteritems():
 				next_point[key] = type(counter)()
 				for (sub_key, val) in counter.iteritems():
 					next_point[key][sub_key] = val
 			change = 0.0
-			
+
 			for (key, partials) in gradient.iteritems():
 				deltas =  partials * cls.step
 				next_point[key] -= deltas

@@ -56,6 +56,7 @@ class Counter(defaultdict):
 		
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
+		# FIXME: This is polluting the keys in self and other...
 		lval = Counter((key, self[key] * other[key]) for key in keys)
 
 		return lval
@@ -77,7 +78,12 @@ class Counter(defaultdict):
 			self[key] -= other[key]
 
 		return self
-		
+
+	def __sub__(self, other):
+		keys = set(self.iterkeys())
+		keys.update(other.iterkeys())
+
+		return Counter((key, self[key] - other[key]) for key in keys)
 
 def test():
 	all_spam = Counter()

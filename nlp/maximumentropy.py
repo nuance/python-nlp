@@ -1,8 +1,8 @@
 from math import exp, log
 
 from countermap import CounterMap
-from counter import Counter
-# from nlp import counter as Counter
+#from counter import Counter
+from nlp import counter as Counter
 from function import Function
 from minimizer import Minimizer
 from itertools import izip, chain, repeat
@@ -22,29 +22,34 @@ class MaxEntWeightFunction(Function):
 		log_probs.log_normalize()
 		return log_probs
 
-	def value_and_gradient(self, weights):
+	def value_and_gradient(self, weights, verbose=True):
 		objective = 0.0
-		gradient = CounterMap(use_c_counter=False)
+		gradient = CounterMap()
 
-		print "Calculating log probabilities..."
-		log_probs = [self.get_log_probabilities(features, weights) for (label, features) in self.labeled_extracted_features]
-		print "Calculating objective..."
+		if verbose: print "Calculating log probabilities (of %d)..." % len(self.labeled_extracted_features)
+		log_probs = list()
+		for pos, (label, features) in enumerate(self.labeled_extracted_features):
+			if verbose and pos % 100 == 0: print pos 
+			log_probs.append(self.get_log_probabilities(features, weights))
+		if verbose: print "Calculating objective..."
 		objective = -sum(log_probs[index][label] for (index, (label,_)) in enumerate(self.labeled_extracted_features))
 
-		for label in self.labels:
-			print "Working on label %s" % label
-			for feature in self.features:
-				empirical_count = 0.0
-				expected_count = 0.0
+		empirical_counts = CounterMap()
+		expected_counts = CounterMap()
 
-				for (index, (datum_label, datum_features)) in enumerate(self.labeled_extracted_features):
-					if feature in datum_features:
-						if datum_label == label:
-							empirical_count += datum_features[feature]
-						expected_count += exp(log_probs[index][label]) * datum_features[feature]
+		for (index, (datum_label, datum_features)) in enumerate(self.labeled_extracted_features):
+			for (feature, cnt) in datum_features.iteritems():
+				for label in self.labels:
+					if datum_label == label:
+						empirical_counts[label][feature] += cnt
+					expected_counts[label][feature] += exp(log_probs[index][label]) * cnt
 
-					gradient[label][feature] = expected_count - empirical_count
+		if verbose: print "Calculated expected / empirical counts"
+					
+		gradient = expected_counts - empirical_counts
 
+		if verbose: print "Applying penalty"
+		
 		# Apply a penalty (e.g. smooth the results)
 		penalty = 0.0
 
@@ -86,18 +91,24 @@ class MaximumEntropyClassifier:
 		weight_function = MaxEntWeightFunction(labeled_features, self.labels, self.features)
 
 		print "Building initial dictionary..."
-		initial_weights = CounterMap(use_c_counter=False)
+		initial_weights = CounterMap()
+
+		print self.labels
+		
 		for label in self.labels:
 			for feature in self.features:
 				initial_weights[label][feature] += 1.0
 
+#		print initial_weights
+				
 		print "Minimizing..."
 		self.weights = Minimizer.minimize_map(weight_function, initial_weights)
 
 	def train(self, labeled_data):
-		print "Building label / feature sets"
+		print "Building label set"
 		self.labels = set(label for _,label in labeled_data)
-		self.features = set(feature for feature in (self.extract_features(datum) for (datum, _) in labeled_data))
+
+		self.features = set()
 
 		print "Labeling data..."
 		labeled_features = []
@@ -105,6 +116,7 @@ class MaximumEntropyClassifier:
 			features = Counter()
 			for feature in self.extract_features(datum):
 				features[feature] += 1.0
+				self.features.add(feature)
 			labeled_features.append((label, features))
 
 		self.train_with_features(labeled_features)

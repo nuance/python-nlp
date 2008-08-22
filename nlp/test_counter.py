@@ -66,6 +66,8 @@ def test():
 	assert(bob.arg_max() in ('spam', 'ham'))
 	assert(len(bob.keys()) == 2)
 
+	print "bob = half_spam * 2 done"
+	
 	jim = bob * half_spam
 	
 	assert(jim['spam'] == 0.5)
@@ -73,12 +75,20 @@ def test():
 	assert(jim.arg_max() in ('spam', 'ham'))
 	assert(len(jim.keys()) == 2)
 
+	print "jim = bob * half_spam done"
+
+	print bob
 	bob -= jim
 
+	print "sub done"
+	print jim
+	
 	assert(bob['spam'] == 0.5)
 	assert(bob['ham'] == 0.5)
 	assert(bob.arg_max() in ('spam', 'ham'))
 	assert(len(bob.keys()) == 2)
+
+	print "bob -= jim done"
 	
 	del(half_spam)
 	del(bob)
@@ -123,7 +133,21 @@ def test():
 
 	assert(aadd['bob'] == 6)
 	assert(badd['bob'] == 4)
-	
+
+	base = counter()
+	sub = counter()
+
+	base['cat'] += 1
+	base['dog'] += 1
+
+	sub['cat'] = 0.001
+
+	# Exercise the garbage collector - ideally we should be caching recently
+	# released counters to optimize for this
+	for i in xrange(10000):
+		jim = base - sub
+
+	print jim
 
 if __name__ == "__main__":
 	test()

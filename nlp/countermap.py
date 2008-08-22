@@ -4,7 +4,11 @@ from counter import Counter
 from itertools import chain, izip, repeat
 
 class CounterMap(defaultdict):
+	use_c_counter = False
+	
 	def __init__(self, use_c_counter = True):
+		self.use_c_counter = use_c_counter
+		
 		if use_c_counter:
 			super(CounterMap, self).__init__(lambda:counter())
 		else:
@@ -23,6 +27,23 @@ class CounterMap(defaultdict):
 		FIXME: this isn't guaranteed to return the same thing every time"""
 		return chain([izip(repeat(key, len(counter.iteritems())), counter.iteritems()) for (key, counter) in self.iteritems()])
 
+	def __sub__(self, other):
+		ret = CounterMap(self.use_c_counter)
+
+		for (key, counter) in self.iteritems():
+			if key in other:
+				ret[key] = counter - other[key]
+			else:
+				ret[key] = counter
+
+		for key in (set(other.iterkeys()) - set(self.iterkeys())):
+			if self.use_c_counter:
+				ret[key] = counter() - other[key]
+			else:
+				ret[key] = Counter() - other[key]
+
+		return ret
+	
 	def __str__(self):
 		string = ""
 		for (key, counter) in self.iteritems():

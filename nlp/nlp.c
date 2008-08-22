@@ -97,9 +97,13 @@ cnter_normalize(cnterobject *dd)
 	
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) / sum);
-		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
-		Py_DECREF(newValue);
+	  int ok;
+
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) / sum);
+	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) return NULL;
 	}
 	
 	Py_INCREF(Py_None);
@@ -124,9 +128,13 @@ cnter_log_normalize(cnterobject *dd)
 
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) - log_sum);
-		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
-		Py_DECREF(newValue);
+	  int ok;
+
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) - log_sum);
+	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) return NULL;
 	}
 	
 	Py_INCREF(Py_None);
@@ -197,22 +205,34 @@ cnter_imul(cnterobject *dd, PyObject *other)
 	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
 		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
-		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0)
-			return NULL;
-		else if (contains < 0)
-			return NULL;
-	}
-
-	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
-		if (otherValue == NULL) otherValue = defaultValue;
-		
-		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * PyFloat_AsDouble(otherValue));
-		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
-		Py_DECREF(value);
+		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0) {
+		  Py_DECREF(defaultValue);
+		  return NULL;
+		}
+		else if (contains < 0) {
+		  Py_DECREF(defaultValue);
+		  return NULL;
+		}
 	}
 	
+	i = 0;
+	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	  int ok;
+	  PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+
+	  if (otherValue == NULL) otherValue = defaultValue;
+		
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * PyFloat_AsDouble(otherValue));
+	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) {
+		Py_DECREF(defaultValue);
+		return NULL;
+	  }
+	}
+	
+	Py_DECREF(defaultValue);
 	Py_INCREF((PyObject*)dd);
 	return (PyObject*)dd;
 }
@@ -231,17 +251,23 @@ cnter_scale(cnterobject *dd, PyObject *other)
   cnterobject *ret_cnter = NULL;
 
   ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
-  Py_INCREF((PyObject*)ret_cnter);
 
   // Copy dd into ret_cnter
-  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)&(dd->dict)) == -1)
+  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)&(dd->dict)) < 0)
    	return NULL;
 
   i = 0;
   while (PyDict_Next((PyObject*)&(ret_cnter->dict), &i, &key, &value)) {
+	int ok;
+
 	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * scale);
-	PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
-	Py_DECREF(value);
+	ok = PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
+	Py_DECREF(newValue);
+
+	if (ok < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  return NULL;
+	}
   }
 	
   return (PyObject*)ret_cnter;
@@ -259,33 +285,51 @@ cnter_mul(cnterobject *dd, PyObject *other)
 
   cnterobject *other_cnter = (cnterobject*)other;
   cnterobject *ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
-  Py_INCREF((PyObject*)ret_cnter);
 
   // Copy dd into ret_cnter
-  PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd);
+  if (PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd) < 0) {
+	Py_DECREF((PyObject*)ret_cnter);
+	return NULL;
+  }
 
-  // Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
+  // Walk through all the keys in other and fetch them from ret_cnter, thus creating 0.0 items for any missing keys
   i = 0;
   PyObject *defaultValue = PyFloat_FromDouble(0.0);
+
   while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 	int contains = PyDict_Contains((PyObject*)&(ret_cnter->dict), key);
 	// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
-	if (contains == 0 && PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, defaultValue) < 0)
+	if (contains == 0 && PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, defaultValue) < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  Py_DECREF(defaultValue);
 	  return NULL;
-	else if (contains < 0)
+	}
+	else if (contains < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  Py_DECREF(defaultValue);
 	  return NULL;
+	}
   }
 
   i = 0;
   while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	int ok;
+
 	PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
 	if (otherValue == NULL) otherValue = defaultValue;
 		
 	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * PyFloat_AsDouble(otherValue));
-	PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
-	Py_DECREF(value);
+	ok = PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
+	Py_DECREF(newValue);
+
+	if (ok < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  Py_DECREF(defaultValue);
+	  return NULL;
+	}
   }
-	
+
+  Py_DECREF(defaultValue);
   return (PyObject*)ret_cnter;
 }
 
@@ -303,22 +347,33 @@ cnter_iadd(cnterobject *dd, PyObject *other)
 	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
 		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
-		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0)
-			return NULL;
-		else if (contains < 0)
-			return NULL;
+		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0) {
+		  Py_DECREF(defaultValue);
+		  return NULL;
+		}
+		else if (contains < 0) {
+		  Py_DECREF(defaultValue);
+		  return NULL;
+		}
 	}
 
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
-		if (otherValue == NULL) otherValue = defaultValue;
+	  int ok;
+	  PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+	  if (otherValue == NULL) otherValue = defaultValue;
 		
-		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + PyFloat_AsDouble(otherValue));
-		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
-		Py_DECREF(value);
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + PyFloat_AsDouble(otherValue));
+	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) {
+		Py_DECREF(defaultValue);
+		return NULL;
+	  }
 	}
 
+	Py_DECREF(defaultValue);
 	Py_INCREF((PyObject*)dd);
 	return (PyObject*)dd;
 }
@@ -337,24 +392,80 @@ cnter_isub(cnterobject *dd, PyObject *other)
 	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
 		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
-		if (contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0)
-			return NULL;
-		else if (contains < 0)
-			return NULL;
+		if ((contains == 0 && PyDict_SetItem((PyObject*)&(dd->dict), key, defaultValue) < 0) || contains < 0) {
+		  // if the set throws an error or contains threw an error, return NULL
+		  Py_DECREF(defaultValue);
+		  return NULL;
+		}
 	}
 
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-		PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
-		if (otherValue == NULL) otherValue = defaultValue;
+	  int ok;
+	  PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+	  if (otherValue == NULL) otherValue = defaultValue;
 		
-		PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) - PyFloat_AsDouble(otherValue));
-		PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
-		Py_DECREF(value);
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) - PyFloat_AsDouble(otherValue));
+	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) {
+		Py_DECREF(defaultValue);
+		return NULL;
+	  }
 	}
 
+	Py_DECREF(defaultValue);
 	Py_INCREF((PyObject*)dd);
 	return (PyObject*)dd;
+}
+
+static PyObject *
+cnter_sub(cnterobject *dd, PyObject *other)
+{
+  Py_ssize_t i;
+  PyObject *key, *value;
+  // TODO: check that other is a counter or a number
+
+  cnterobject *other_cnter = (cnterobject*)other;
+  cnterobject *ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
+
+  // Copy dd into ret_cnter
+  if (PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd) == -1) {
+	Py_DECREF((PyObject*)ret_cnter);
+	return NULL;
+  }
+
+  // Walk through all the keys in other and fetch them from ret_cnter, thus creating items for any missing keys
+  i = 0;
+  while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
+	int contains = PyDict_Contains((PyObject*)&(ret_cnter->dict), key);
+	// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
+	if (contains == 0 && PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, PyFloat_FromDouble(- PyFloat_AsDouble(value))) < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  return NULL;
+	}
+	else if (contains == 1) {
+	  int ok;
+
+	  PyObject *myValue = PyDict_GetItem((PyObject*)&(ret_cnter->dict), key);
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(myValue) - PyFloat_AsDouble(value));
+
+	  ok = PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) {
+		Py_DECREF((PyObject*)ret_cnter);
+		return NULL;
+	  }
+	}
+	else if (contains < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  return NULL;
+	}
+  }
+	
+  return (PyObject*)ret_cnter;
 }
 
 static PyMethodDef cnter_methods[] = {
@@ -453,7 +564,7 @@ A counter compares equal to a dict with the same items.\n\
 
 static PyNumberMethods cnter_as_number = {
 	0,				/*nb_add*/
-	0,				/*nb_subtract*/
+	(binaryfunc) cnter_sub,				/*nb_subtract*/
     (binaryfunc) cnter_mul,				/*nb_multiply*/
 	0,				/*nb_divide*/
 	0,				/*nb_remainder*/
