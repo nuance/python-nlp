@@ -1,13 +1,15 @@
 #include "Python.h"
 #include <math.h>
 
-/* counter type *********************************************************/
+#define NLP_MODULE
+
+#include "nlp.h"
 
 typedef struct {
   PyDictObject dict;
 } cnterobject;
 
-static PyTypeObject cnter_type; /* Forward */
+/* counter type *********************************************************/
 
 static int cnter_init(PyObject *self, PyObject *args, PyObject *kwds); /* Forward */
 static PyObject * cnter_repr(cnterobject *dd);
@@ -250,7 +252,7 @@ cnter_scale(cnterobject *dd, PyObject *other)
 
   cnterobject *ret_cnter = NULL;
 
-  ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
+  ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
 
   // Copy dd into ret_cnter
   if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)&(dd->dict)) < 0)
@@ -284,7 +286,7 @@ cnter_mul(cnterobject *dd, PyObject *other)
 	return cnter_scale(dd, other);
 
   cnterobject *other_cnter = (cnterobject*)other;
-  cnterobject *ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
+  cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
 
   // Copy dd into ret_cnter
   if (PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd) < 0) {
@@ -428,7 +430,7 @@ cnter_sub(cnterobject *dd, PyObject *other)
   // TODO: check that other is a counter or a number
 
   cnterobject *other_cnter = (cnterobject*)other;
-  cnterobject *ret_cnter = (cnterobject *)cnter_type.tp_new(&cnter_type, NULL, NULL);
+  cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
 
   // Copy dd into ret_cnter
   if (PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd) == -1) {
@@ -551,6 +553,44 @@ cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
   return result;
 }
 
+/* C interfaces */
+
+PyObject *
+NlpCounter_New(void)
+{
+  cnterobject *mp;
+
+  mp = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
+
+  return (PyObject *)mp;
+}
+
+void
+NlpCounter_Normalize(PyObject *op)
+{
+  cnterobject *mp;
+
+  if (!NlpCounter_Check(op))
+	return;
+  
+  mp = (cnterobject*)op;
+  cnter_normalize(mp);
+}
+
+void
+NlpCounter_LogNormalize(PyObject *op)
+{
+  cnterobject *mp;
+
+  if (!NlpCounter_Check(op))
+	return;
+  
+  mp = (cnterobject*)op;
+  cnter_log_normalize(mp);
+}
+
+/****************/
+
 PyDoc_STRVAR(cnter_doc,
 "counter() --> dict with default of 0.0\n\
 \n\
@@ -599,7 +639,7 @@ static PyNumberMethods cnter_as_number = {
 	0,				/*nb_inplace_or*/
 };
 
-static PyTypeObject cnter_type = {
+PyTypeObject NlpCounter_Type = {
 	PyObject_HEAD_INIT(DEFERRED_ADDRESS(&PyType_Type))
 	0,				/* ob_size */
 	"nlp.counter",	/* tp_name */
@@ -655,16 +695,27 @@ PyMODINIT_FUNC
 initnlp(void)
 {
 	PyObject *m;
+	static void *NlpCounter_API[NlpCounter_API_pointers];
+	PyObject *c_api_object;
 
 	m = Py_InitModule3("nlp", NULL, module_doc);
 	if (m == NULL)
 		return;
 
-	cnter_type.tp_base = &PyDict_Type;
-	if (PyType_Ready(&cnter_type) < 0)
+	NlpCounter_Type.tp_base = &PyDict_Type;
+	if (PyType_Ready(&NlpCounter_Type) < 0)
 		return;
-	Py_INCREF(&cnter_type);
-	PyModule_AddObject(m, "counter", (PyObject *)&cnter_type);
+	Py_INCREF(&NlpCounter_Type);
+	PyModule_AddObject(m, "counter", (PyObject *)&NlpCounter_Type);
+
+	NlpCounter_API[0] = (void *)NlpCounter_New;
+	NlpCounter_API[1] = (void *)NlpCounter_Normalize;
+	NlpCounter_API[2] = (void *)NlpCounter_LogNormalize;
+
+	c_api_object = PyCObject_FromVoidPtr((void *)NlpCounter_API, NULL);
+
+	if (c_api_object != NULL)
+	  PyModule_AddObject(m, "_C_API", c_api_object);
 
 	return;
 }
