@@ -4,7 +4,7 @@ from itertools import izip
 from time import time
 
 class Minimizer:
-	max_iterations = 10000
+	max_iterations = 0
 	sqr_convergence = 0.000000000001
 	step = 0.01
 	verbose = True
@@ -42,31 +42,47 @@ class Minimizer:
 		point = start_map
 		last_time = time()
 
+		subkeys = None
+		
 		while not converged:
+			if subkeys:
+				for key in ['person', 'movie']:
+					print "Point (%s): %s" % (key, [point[key][subkey] for subkey in subkeys])
+
 			tup = function.value_and_gradient(point)
 			(value, gradient) = tup
-			
+
 			next_point = type(point)()
-			for (key, counter) in point.iteritems():
-				next_point[key] = type(counter)()
-				for (sub_key, val) in counter.iteritems():
-					next_point[key][sub_key] = val
+#			for (key, counter) in point.iteritems():
+#				next_point[key] = type(counter)()
+#				for (sub_key, val) in counter.iteritems():
+#					next_point[key][sub_key] = val
 			change = 0.0
 
 			for (key, partials) in gradient.iteritems():
-				deltas =  partials * cls.step
-				next_point[key] -= deltas
-				change += sum(delta**2 for delta in deltas.values())
+				deltas = partials * cls.step
+				next_point[key] = point[key] - deltas
+				change += sum(delta**2 for delta in deltas.itervalues())
 			iteration += 1
 			
 			if change < cls.sqr_convergence:
 				converged = True
 			elif iteration > cls.max_iterations:
 				converged = True
+
+			for key in ['person', 'movie']:
+				partials = gradient[key]
+				print "Key: %s" % key
+				subkeys = partials.keys()[0:5]
+				print subkeys
+				print "Partials: %s" % [partials[subkey] for subkey in subkeys]
+				print "Deltas: %s" % [deltas[subkey] for subkey in subkeys]
+				print "Point: %s" % [point[key][subkey] for subkey in subkeys]
+				print "Next point: %s" % [next_point[key][subkey] for subkey in subkeys]
 			
 			point = next_point
 
-			if cls.verbose and time()-last_time > 1:
+			if cls.verbose and time()-last_time > 1 or iteration > cls.max_iterations:
 				print "*** Finished gradient descent iteration %d (objective: %f)***" % (iteration, value)
 				last_time = time()
 		
