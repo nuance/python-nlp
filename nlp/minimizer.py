@@ -10,6 +10,35 @@ class Minimizer:
 	verbose = True
 
 	@classmethod
+	def __line_minimize(cls, function, start, direction):
+		epsilon = 1e-10
+		step_size_mult = 0.9
+		required_decrease = 1e-4
+		step_size = 1
+
+		(value, gradient) = function.value_and_gradient(start)
+		derivative = direction.innerProduct(gradient)
+
+		guess = None
+		guess_value = 0.0
+		done = False
+
+		while True:
+			guess = start + direction * step_size
+			guess_value = function.value(guess)
+			sufficient_decrease_value = value + required_decrease * derivative * step_size
+
+			if sufficient_decrease_value >= guess_value:
+				return guess
+
+			step_size *= step_size_mult
+			if step_size < epsilon:
+				print "Line searcher underflow"
+				return start
+
+		assert False, "Line searcher should have returned by now!"
+
+	@classmethod
 	def minimize(cls, function, start):
 		converged = False
 		iteration = 0
