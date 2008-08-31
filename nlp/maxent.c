@@ -32,11 +32,12 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
 	PyObject *featureKey, *featureCount;
 	PyObject *labelWeights = PyDict_GetItem(weights, label);;
 	
-	j = 0;
-	while (PyDict_Next((PyObject*)features, &j, &featureKey, &featureCount)) {
-	  PyObject *weight = PyDict_GetItem(labelWeights, featureKey);
-
-	  sum += PyFloat_AsDouble(featureCount) * PyFloat_AsDouble(weight);
+	if (labelWeights) {
+	  j = 0;
+	  while (PyDict_Next((PyObject*)features, &j, &featureKey, &featureCount)) {
+		PyObject *weight = PyDict_GetItem(labelWeights, featureKey);
+		sum += PyFloat_AsDouble(featureCount) * PyFloat_AsDouble(weight);
+	  }
 	}
 
 	newValue = PyFloat_FromDouble(sum);
