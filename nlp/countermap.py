@@ -79,13 +79,10 @@ class CounterMap(defaultdict):
 			if key in other:
 				ret[key] = counter - other[key]
 			else:
-				ret[key] = counter
+				ret[key] = copy(counter)
 
 		for key in (set(other.iterkeys()) - set(self.iterkeys())):
-			if self.use_c_counter:
-				ret[key] = counter() - other[key]
-			else:
-				ret[key] = Counter() - other[key]
+			ret[key] = type(other[key])() - other[key]
 
 		return ret
 	
