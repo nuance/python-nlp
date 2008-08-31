@@ -203,7 +203,8 @@ def toy_problem():
 	training_data = (('cat', cnter(('fuzzy', 'claws', 'small'))),
 					 ('bear', cnter(('fuzzy', 'claws', 'big'))),
 					 ('cat', cnter(('claws', 'medium'))))
-	test_data = (('cat', cnter(('claws', 'small'))),)
+	test_data = (('cat', cnter(('claws', 'small'))),
+				 ('bear', cnter(('fuzzy',))))
 
 	classifier = MaximumEntropyClassifier()
 	classifier.labels = set(('cat', 'bear'))
@@ -211,10 +212,10 @@ def toy_problem():
 	classifier.train_with_features(training_data)
 
 	print "Weights: %s" % classifier.weights
-	log_probs = classifier.get_log_probabilities(test_data[0][1])
-	print "Test (small cat with claws): %s" % log_probs
-	for label in ['cat', 'bear']:
-		print "P[%s | {small, claws}] = %f" % (label, exp(log_probs[label]))
+	for test_datum in test_data:
+		log_probs = classifier.get_log_probabilities(test_datum[1])
+		for label in ['cat', 'bear']:
+			print "P[%s | %s] = %f" % (label, test_datum[1], exp(log_probs[label]))
 
 if __name__ == "__main__":
  	print "*** Maximum Entropy Classifier ***"
