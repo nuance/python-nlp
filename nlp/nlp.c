@@ -336,6 +336,66 @@ cnter_mul(cnterobject *dd, PyObject *other)
 }
 
 static PyObject *
+cnter_add(cnterobject *dd, PyObject *other)
+{
+  Py_ssize_t i;
+  PyObject *key, *value;
+  // TODO: check that other is a counter or a number
+
+  if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
+	return NULL;
+
+  cnterobject *other_cnter = (cnterobject*)other;
+  cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
+
+  // Copy dd into ret_cnter
+  if (PyDict_Update((PyObject*)ret_cnter, (PyObject*)dd) < 0) {
+	Py_DECREF((PyObject*)ret_cnter);
+	return NULL;
+  }
+
+  // Walk through all the keys in other and insert them into ret_cnter
+  i = 0;
+  PyObject *defaultValue = PyFloat_FromDouble(0.0);
+
+  while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
+	int contains = PyDict_Contains((PyObject*)&(ret_cnter->dict), key);
+	// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
+	if (contains == 0 && PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, value) < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  Py_DECREF(defaultValue);
+	  return NULL;
+	}
+	else if (contains < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  Py_DECREF(defaultValue);
+	  return NULL;
+	}
+  }
+
+  i = 0;
+  while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	int ok;
+
+	PyObject *otherValue = PyDict_GetItem((PyObject*)&(other_cnter->dict), key);
+	if (otherValue == NULL) otherValue = defaultValue;
+		
+	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + PyFloat_AsDouble(otherValue));
+	ok = PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
+	Py_DECREF(newValue);
+
+	if (ok < 0) {
+	  Py_DECREF((PyObject*)ret_cnter);
+	  Py_DECREF(defaultValue);
+	  return NULL;
+	}
+  }
+
+  Py_DECREF(defaultValue);
+  return (PyObject*)ret_cnter;
+}
+
+static PyObject *
 cnter_iadd(cnterobject *dd, PyObject *other)
 {
 	Py_ssize_t i;
@@ -603,7 +663,7 @@ A counter compares equal to a dict with the same items.\n\
 #define DEFERRED_ADDRESS(ADDR) 0
 
 static PyNumberMethods cnter_as_number = {
-	0,				/*nb_add*/
+    (binaryfunc) cnter_add,				/*nb_add*/
 	(binaryfunc) cnter_sub,				/*nb_subtract*/
     (binaryfunc) cnter_mul,				/*nb_multiply*/
 	0,				/*nb_divide*/

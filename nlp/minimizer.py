@@ -4,15 +4,13 @@ from itertools import izip
 from time import time
 
 class Minimizer:
-	max_iterations = 0
-	sqr_convergence = 0.000000000001
+	min_iterations = 0
+	epsilon = 1e-10
+	tolerance = 1e-4
 	verbose = True
 
 	@classmethod
-	def __line_minimize(cls, function, start, direction):
-		epsilon = 1e-10
-		step_size_mult = 0.9
-		required_decrease = 1e-4
+	def __line_minimize(cls, function, start, direction, step_size_mult=0.9, verbose=False):
 		step_size = 1
 
 		(value, gradient) = function.value_and_gradient(start)
@@ -25,91 +23,94 @@ class Minimizer:
 		while True:
 			guess = start + direction * step_size
 			guess_value = function.value(guess)
-			sufficient_decrease_value = value + required_decrease * derivative * step_size
+			sufficient_decrease_value = value + cls.tolerance * derivative * step_size
 
 			if sufficient_decrease_value >= guess_value:
 				return guess
 
 			step_size *= step_size_mult
-			if step_size < epsilon:
-				print "Line searcher underflow"
+			if step_size < cls.epsilon:
+				if verbose: print "Line searcher underflow"
 				return start
 
-			print "Retrying with step size %f" % step_size
+			if verbose: print "Retrying with step size %f" % step_size
 
 		assert False, "Line searcher should have returned by now!"
 
-	@classmethod
-	def minimize(cls, function, start):
-		converged = False
-		iteration = 0
-		point = start
-		last_time = time()
-		
-		while not converged:
-			(value, gradient) = function.value_and_gradient(point)
-			
-			next_point = [coord - cls.step * partial for (coord, partial) in izip(point, gradient)]
-			iteration += 1
-			
-			if sum((start - stop)**2 for (start, stop) in izip(point, next_point)) < cls.sqr_convergence:
-				converged = True
-			elif iteration > cls.max_iterations:
-				converged = True
-			
-			point = next_point
-
-			if cls.verbose and time()-last_time > 1:
-				print "*** Finished gradient descent iteration %d (objective: %f)***" % (iteration, value)
-				last_time = time()
-
-		return point
 
 	@classmethod
-	def minimize_map(cls, function, start_map):
+	def __implicit_multiply(cls, scale, gradient, delta_history, verbose=False):
+		rho = list()
+		alpha = list()
+		right = type(gradient)()
+
+		for key, counter in gradient.iteritems():
+			right[key] = copy(counter)
+
+		for (point_delta, derivative_delta) in reversed(delta_history):
+			rho.append(point_delta.inner_product(derivative_delta))
+			if rho[-1] == 0.0:
+				raise Exception("Curvature problem")
+			alpha.append(point_delta.inner_product(right) / rho[-1])
+			right += derivative_delta * (-alpha[-1])
+
+		if verbose: print "Right: %s" % repr(right)
+		if verbose: print "Scale: %f" % scale
+
+		alpha.reverse()
+		rho.reverse()
+		left = right * scale
+
+		for alpha, rho, (point_delta, derivative_delta) in izip(alpha, rho, delta_history):
+			left += point_delta * (alpha - derivative_delta.inner_product(left) / rho)
+
+		if verbose: print "Left: %s" % repr(left)
+
+		return left
+
+	@classmethod
+	def minimize(cls, function, start_map, verbose=False):
 		converged = False
 		iteration = 0
 		point = start_map
 		last_time = time()
 
-		subkeys = None
-		
+		history = list()
+
+		derivative_delta = None
+		point_delta = None
+
 		while not converged:
-			if subkeys:
-				for key in ['person', 'movie']:
-					print "Point (%s): %s" % (key, [point[key][subkey] for subkey in subkeys])
+			(value, gradient) = function.value_and_gradient(point)
+			if verbose: print "Value: %s, Gradient: %s" % (value, gradient)
 
-			tup = function.value_and_gradient(point)
-			(value, gradient) = tup
+			# Calculate inverse hessian scaling
+			hessian_scale = 1.0
+			if derivative_delta:
+				hessian_scale = derivative_delta.inner_product(point_delta) / derivative_delta.inner_product(derivative_delta)
+			if verbose: print "Found hessian scaling: %f" % hessian_scale
 
-			next_point = cls.__line_minimize(function, point, gradient)
+			# Find and invert direction
+			direction = type(start_map)() - cls.__implicit_multiply(hessian_scale, gradient, history)
+			if verbose: print "Direction: %s" % repr(direction)
 
-			change = 0.0
-			for label in next_point.iterkeys():
-				change += sum((next_val-val)**2 for next_val, val in izip(next_point[label].itervalues(), point[label].itervalues()))
-			
-			iteration += 1
-			
-			if change < cls.sqr_convergence:
-				converged = True
-			elif iteration > cls.max_iterations:
-				converged = True
+			# Line search in the direction found
+			if iteration == 0:
+				next_point = cls.__line_minimize(function, point, direction, step_size_mult=0.01)
+			else:
+				next_point = cls.__line_minimize(function, point, direction, step_size_mult=0.5)
 
-			for key in ['person', 'movie']:
-				partials = gradient[key]
-				print "Key: %s" % key
-				subkeys = partials.keys()[0:5]
-				print subkeys
-				print "Partials: %s" % [partials[subkey] for subkey in subkeys]
-				print "Point: %s" % [point[key][subkey] for subkey in subkeys]
-				print "Next point: %s" % [next_point[key][subkey] for subkey in subkeys]
-			
+			# This function call should be cached for the next iteration
+			(next_value, next_gradient) = function.value_and_gradient(next_point)
+
+			converged = iteration > cls.min_iterations and abs((next_value - value) / ((next_value + value + cls.epsilon) / 2.0)) < cls.tolerance
+
+			history.append((next_point - point, next_gradient - gradient))
 			point = next_point
+			iteration += 1
 
-			if cls.verbose and time()-last_time > 1 or iteration > cls.max_iterations:
-				print "*** Finished gradient descent iteration %d (objective: %f)***" % (iteration, value)
-				last_time = time()
-		
+			print "*** Minimizer finished iteration %d with objective %f" % (iteration, next_value)
+
 		return point
 
 def test():

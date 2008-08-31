@@ -42,7 +42,7 @@ class MaxEntWeightFunction(Function):
 		log_probs.log_normalize()
 		return log_probs
 
-	def value_and_gradient(self, weights, verbose=True):
+	def value_and_gradient(self, weights, verbose=False):
 		objective = 0.0
 		gradient = CounterMap()
 
@@ -86,7 +86,7 @@ class MaxEntWeightFunction(Function):
 
 		return (objective, gradient)
 
-	def value(self, weights, verbose=True):
+	def value(self, weights, verbose=False):
 		objective = 0.0
 
 		if verbose: print "Calculating log probabilities and objective..."
@@ -142,9 +142,9 @@ class MaximumEntropyClassifier:
 		initial_weights = CounterMap()
 
 		print "Labels: %s" % self.labels
-		
+
 		print "Minimizing..."
-		self.weights = Minimizer.minimize_map(weight_function, initial_weights)
+		self.weights = Minimizer.minimize(weight_function, initial_weights)
 
 	def train(self, labeled_data):
 		print "Building label set"
