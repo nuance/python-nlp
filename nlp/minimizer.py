@@ -6,7 +6,6 @@ from time import time
 class Minimizer:
 	max_iterations = 0
 	sqr_convergence = 0.000000000001
-	step = 0.01
 	verbose = True
 
 	@classmethod
@@ -17,7 +16,7 @@ class Minimizer:
 		step_size = 1
 
 		(value, gradient) = function.value_and_gradient(start)
-		derivative = direction.innerProduct(gradient)
+		derivative = direction.inner_product(gradient)
 
 		guess = None
 		guess_value = 0.0
@@ -35,6 +34,8 @@ class Minimizer:
 			if step_size < epsilon:
 				print "Line searcher underflow"
 				return start
+
+			print "Retrying with step size %f" % step_size
 
 		assert False, "Line searcher should have returned by now!"
 
@@ -81,17 +82,12 @@ class Minimizer:
 			tup = function.value_and_gradient(point)
 			(value, gradient) = tup
 
-			next_point = type(point)()
-#			for (key, counter) in point.iteritems():
-#				next_point[key] = type(counter)()
-#				for (sub_key, val) in counter.iteritems():
-#					next_point[key][sub_key] = val
-			change = 0.0
+			next_point = cls.__line_minimize(function, point, gradient)
 
-			for (key, partials) in gradient.iteritems():
-				deltas = partials * cls.step
-				next_point[key] = point[key] - deltas
-				change += sum(delta**2 for delta in deltas.itervalues())
+			change = 0.0
+			for label in next_point.iterkeys():
+				change += sum((next_val-val)**2 for next_val, val in izip(next_point[label].itervalues(), point[label].itervalues()))
+			
 			iteration += 1
 			
 			if change < cls.sqr_convergence:
@@ -105,7 +101,6 @@ class Minimizer:
 				subkeys = partials.keys()[0:5]
 				print subkeys
 				print "Partials: %s" % [partials[subkey] for subkey in subkeys]
-				print "Deltas: %s" % [deltas[subkey] for subkey in subkeys]
 				print "Point: %s" % [point[key][subkey] for subkey in subkeys]
 				print "Next point: %s" % [next_point[key][subkey] for subkey in subkeys]
 			

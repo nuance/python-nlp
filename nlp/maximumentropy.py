@@ -1,5 +1,4 @@
 import sys
-
 from math import exp, log
 
 # c modules
@@ -43,7 +42,7 @@ class MaxEntWeightFunction(Function):
 		log_probs.log_normalize()
 		return log_probs
 
-	def value_and_gradient(self, weights, verbose=False):
+	def value_and_gradient(self, weights, verbose=True):
 		objective = 0.0
 		gradient = CounterMap()
 
@@ -87,6 +86,34 @@ class MaxEntWeightFunction(Function):
 
 		return (objective, gradient)
 
+	def value(self, weights, verbose=True):
+		objective = 0.0
+
+		if verbose: print "Calculating log probabilities and objective..."
+		log_probs = list()
+		for pos, (label, features) in enumerate(self.labeled_extracted_features):
+			log_probs.append(get_log_probs(features, weights, self.labels))
+
+		objective = -sum(log_probs[index][label] for (index, (label,_)) in enumerate(self.labeled_extracted_features))
+
+		if verbose: print "Raw objective: %f" % objective
+
+		if verbose: print "Applying penalty"
+		
+		# Apply a penalty (e.g. smooth the results)
+		penalty = 0.0
+
+		for label in self.labels:
+			for feature in self.features:
+				weight = weights[feature][label]
+				penalty += weight**2
+
+		penalty /= 2 * self.sigma**2
+		objective += penalty
+		if verbose: print "Penalized objective: %f" % objective
+
+		return objective
+
 class MaximumEntropyClassifier:
 	labels = None
 	features = None
@@ -102,8 +129,8 @@ class MaximumEntropyClassifier:
 		last_char = ''
 		for char in datum:
 			yield char
-			yield last_char+char
-			yield last_last_char + last_char + char
+#			yield last_char+char
+#			yield last_last_char + last_char + char
 			last_last_char = last_char
 			last_char = char
 
