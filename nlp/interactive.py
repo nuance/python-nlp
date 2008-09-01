@@ -1,7 +1,7 @@
 import maximumentropy
 from nlp import counter as Counter
 
-classifier = maximumentropy.real_problem()
+classifier = maximumentropy.toy_problem()
 
 datum_features = Counter()
 
@@ -16,4 +16,5 @@ for label in classifier.labels:
 		sums[label] += v * classifier.weights[label][k]
 
 	print "Label %s has score %.2f" % (label, sums[label])
+
 

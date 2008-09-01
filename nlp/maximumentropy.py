@@ -4,6 +4,7 @@ from math import exp, log
 # c modules
 from nlp import counter as Counter
 from maxent import get_log_probabilities as get_log_probs
+from maxent import get_expected_counts
 
 # python modules
 from countermap import CounterMap
@@ -17,7 +18,18 @@ def slow_log_probs(datum_features, weights, labels):
 	log_probs.log_normalize()
 	return log_probs
 
+def slow_expected_counts(labeled_extracted_features, labels, log_probs):
+	expected_counts = CounterMap()
+
+	for (index, (_, datum_features)) in enumerate(labeled_extracted_features):
+		for (feature, cnt) in datum_features.iteritems():
+			for label in labels:
+				expected_counts[label][feature] += exp(log_probs[index][label]) * cnt
+
+	return expected_counts
+
 #get_log_probs = slow_log_probs
+#get_expected_counts = slow_expected_counts
 
 class MaxEntWeightFunction(Function):
 	sigma = 1.0
@@ -42,7 +54,11 @@ class MaxEntWeightFunction(Function):
 		log_probs.log_normalize()
 		return log_probs
 
-	def value_and_gradient(self, weights, verbose=False):
+	last_vg_weights = None
+	last_vg = (None, None)
+	def value_and_gradient(self, weights, verbose=True):
+		if weights == self.last_vg_weights:
+			return self.last_vg
 		objective = 0.0
 		gradient = CounterMap()
 
@@ -58,12 +74,7 @@ class MaxEntWeightFunction(Function):
 
 		if verbose: print "Calculating expected counts..."
 
-		expected_counts = CounterMap()
-
-		for (index, (_, datum_features)) in enumerate(self.labeled_extracted_features):
-			for (feature, cnt) in datum_features.iteritems():
-				for label in self.labels:
-					expected_counts[label][feature] += exp(log_probs[index][label]) * cnt
+		expected_counts = get_expected_counts(self.labeled_extracted_features, self.labels, log_probs, CounterMap())
 
 		if verbose: print "Calculating gradient..."
 
@@ -84,6 +95,8 @@ class MaxEntWeightFunction(Function):
 		objective += penalty
 		if verbose: print "Penalized objective: %f" % objective
 
+		self.last_vg_weights = weights
+		self.last_vg = (objective, gradient)
 		return (objective, gradient)
 
 	def value(self, weights, verbose=False):
@@ -216,6 +229,8 @@ def toy_problem():
 		log_probs = classifier.get_log_probabilities(test_datum[1])
 		for label in ['cat', 'bear']:
 			print "P[%s | %s] = %f" % (label, test_datum[1], exp(log_probs[label]))
+
+	return classifier
 
 if __name__ == "__main__":
  	print "*** Maximum Entropy Classifier ***"

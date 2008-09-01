@@ -5,6 +5,7 @@ from time import time
 
 class Minimizer:
 	min_iterations = 0
+	max_iterations = 5
 	epsilon = 1e-10
 	tolerance = 1e-4
 	verbose = True
@@ -20,6 +21,8 @@ class Minimizer:
 		guess_value = 0.0
 		done = False
 
+		if verbose: print "Starting with step size %f" % step_size
+		
 		while True:
 			guess = start + direction * step_size
 			guess_value = function.value(guess)
@@ -104,6 +107,8 @@ class Minimizer:
 			(next_value, next_gradient) = function.value_and_gradient(next_point)
 
 			converged = iteration > cls.min_iterations and abs((next_value - value) / ((next_value + value + cls.epsilon) / 2.0)) < cls.tolerance
+
+			converged = converged or iteration >= cls.max_iterations
 
 			history.append((next_point - point, next_gradient - gradient))
 			point = next_point
