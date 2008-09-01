@@ -93,8 +93,6 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	ok = PyDict_SetItem(expected_counts, label, labelCounter);
 	label_counter_cache[label_num] = labelCounter;
 
-	printf("Result of adding label %d: %d\n", (int)label_index, ok);
-
 	Py_DECREF(labelCounter);
 	if (ok < 0) {
 	  free(label_counter_cache);
@@ -106,15 +104,12 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
   }
 
   num_datum = PyTuple_Size(labeled_extracted_features);
-  printf("About to start on data (%d total)\n", (int)num_datum);
   for (datum_index = 0; datum_index < num_datum; datum_index++) {
 	PyObject *pair;
 	PyObject *datum_label, *datum_features, *feature_probs;
 
 	Py_ssize_t feature_index;
 	PyObject *feature, *count;
-
-	printf("Working on datum %d\n", (int)datum_index);
 
 	pair = PyTuple_GetItem(labeled_extracted_features, datum_index);
 	if (PyArg_ParseTuple(pair, "OO", &datum_label, &datum_features) < 0) {
@@ -137,7 +132,6 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	feature_index = 0;
 	while (PyDict_Next(datum_features, &feature_index, &feature, &count)) {
 	  double featureCount = PyFloat_AsDouble(count);
-	  printf ("Feature %d has count %f\n", (int)feature_index, featureCount);
 
 	  label_index = 0;
 	  label_num = 0;
@@ -145,7 +139,6 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 		PyObject *oldValue, *newValue, *logProb, *labelCounter;
 		int ok;
 
-		printf("Looking up label %d (%d) in cache\n", (int)label_index, (int)label_num);
 		labelCounter = label_counter_cache[label_num];
 		oldValue = PyDict_GetItem(labelCounter, feature);
 
