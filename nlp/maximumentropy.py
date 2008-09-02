@@ -1,5 +1,5 @@
 import sys
-from math import exp, log
+from math import exp
 
 # c modules
 from nlp import counter as Counter
@@ -11,7 +11,7 @@ from countermap import CounterMap
 #from counter import Counter
 from function import Function
 from minimizer import Minimizer
-from itertools import izip, chain, repeat
+from itertools import izip, repeat
 
 def slow_log_probs(datum_features, weights, labels):
 	log_probs = Counter((label, sum((weights[label] * datum_features).itervalues())) for label in labels)
@@ -29,7 +29,7 @@ def slow_expected_counts(labeled_extracted_features, labels, log_probs):
 	return expected_counts
 
 #get_log_probs = slow_log_probs
-#get_expected_counts = slow_expected_counts
+#get_expected_counts = lambda a, b, c, d: slow_expected_counts(a, b, c)
 
 class MaxEntWeightFunction(Function):
 	sigma = 1.0
