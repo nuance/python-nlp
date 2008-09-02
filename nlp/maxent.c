@@ -59,6 +59,9 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
   PyObject *labeled_extracted_features, *labels, *log_probs;
   PyObject *expected_counts;
   PyObject **label_counter_cache;
+  
+  // If we get passed a list, we convert it to a tuple and use this to XDECREF for cleanup
+  PyObject *labeled_extracted_features_tuple = NULL;
 
   // Loop variables
   Py_ssize_t datum_index, label_index, num_datum, label_num;
@@ -67,6 +70,11 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "OOOO", &labeled_extracted_features, &labels, &log_probs, &expected_counts))
 	return NULL;
 
+  if (PyList_Check(labeled_extracted_features)) {
+	labeled_extracted_features = PyList_AsTuple(labeled_extracted_features);
+	labeled_extracted_features_tuple = labeled_extracted_features;
+  }
+
   if (!PyTuple_Check(labeled_extracted_features) || !PyAnySet_Check(labels) || !PyList_Check(log_probs) || !PyDict_Check(expected_counts)) {
 	if (!PyTuple_Check(labeled_extracted_features)) printf("labeled_extracted_features\n");
 	if (!PyAnySet_Check(labels)) printf("labels\n");
@@ -74,6 +82,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	if (!PyDict_Check(expected_counts)) printf("expected_counts\n");
 	printf("Types suck\n");
 
+	Py_XDECREF(labeled_extracted_features_tuple);
 	PyErr_BadArgument();
 	return NULL;
   }
@@ -96,6 +105,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	Py_DECREF(labelCounter);
 	if (ok < 0) {
 	  free(label_counter_cache);
+	  Py_XDECREF(labeled_extracted_features_tuple);
 	  Py_DECREF(expected_counts);
 	  printf ("couldn't set label counter\n");
 	  return NULL;
@@ -114,6 +124,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	pair = PyTuple_GetItem(labeled_extracted_features, datum_index);
 	if (PyArg_ParseTuple(pair, "OO", &datum_label, &datum_features) < 0) {
 	  printf ("ParseTuple failed\n");
+	  Py_XDECREF(labeled_extracted_features_tuple);
 	  return NULL;
 	}
 
@@ -123,6 +134,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	  printf("Couldn't get feature_probs\n");
 
 	  free(label_counter_cache);
+	  Py_XDECREF(labeled_extracted_features_tuple);
 	  Py_DECREF(expected_counts);
 	  return NULL;
 	}
@@ -154,6 +166,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 		  free(label_counter_cache);
 		  Py_DECREF(expected_counts);
 		  Py_DECREF(defaultValue);
+		  Py_XDECREF(labeled_extracted_features_tuple);
 		  return NULL;
 		}
 
@@ -165,6 +178,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 		  printf ("Couldn't set new value\n");
 		  free(label_counter_cache);
 		  Py_DECREF(expected_counts);
+		  Py_XDECREF(labeled_extracted_features_tuple);
 		  Py_DECREF(defaultValue);
 		  return NULL;
 		}
@@ -175,6 +189,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	Py_DECREF(defaultValue);
   }
 
+  Py_XDECREF(labeled_extracted_features_tuple);
   free(label_counter_cache);
   return expected_counts;
 }
