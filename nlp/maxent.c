@@ -139,8 +139,6 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	  return NULL;
 	}
 
-	PyObject *defaultValue = PyFloat_FromDouble(0.0);
-
 	feature_index = 0;
 	while (PyDict_Next(datum_features, &feature_index, &feature, &count)) {
 	  double featureCount = PyFloat_AsDouble(count);
@@ -149,14 +147,14 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	  label_num = 0;
 	  while (_PySet_Next(labels, &label_index, &label)) {
 		PyObject *oldValue, *newValue, *logProb, *labelCounter;
+		double oldCount = 0.0;
 		int ok;
 
 		labelCounter = label_counter_cache[label_num];
 		oldValue = PyDict_GetItem(labelCounter, feature);
 
-		if (! oldValue) {
-		  oldValue = defaultValue;
-		  Py_INCREF(defaultValue);
+		if (oldValue) {
+		  oldCount = PyFloat_AsDouble(oldValue);
 		}
 
 		logProb = PyDict_GetItem(feature_probs, label);
@@ -165,12 +163,11 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 		  printf("Couldn't get logProb\n");
 		  free(label_counter_cache);
 		  Py_DECREF(expected_counts);
-		  Py_DECREF(defaultValue);
 		  Py_XDECREF(labeled_extracted_features_tuple);
 		  return NULL;
 		}
 
-		newValue = PyFloat_FromDouble(exp(PyFloat_AsDouble(logProb)) * featureCount);
+		newValue = PyFloat_FromDouble(oldCount + exp(PyFloat_AsDouble(logProb)) * featureCount);
 		ok = PyDict_SetItem(labelCounter, feature, newValue);
 
 		Py_DECREF(newValue);
@@ -179,14 +176,12 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 		  free(label_counter_cache);
 		  Py_DECREF(expected_counts);
 		  Py_XDECREF(labeled_extracted_features_tuple);
-		  Py_DECREF(defaultValue);
 		  return NULL;
 		}
 
 		label_num += 1;
 	  }
 	}
-	Py_DECREF(defaultValue);
   }
 
   Py_XDECREF(labeled_extracted_features_tuple);
