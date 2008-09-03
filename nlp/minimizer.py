@@ -33,7 +33,7 @@ class Minimizer:
 
 			step_size *= step_size_mult
 			if step_size < cls.epsilon:
-				if verbose: print "Line searcher underflow"
+				print "Line searcher underflow"
 				return start
 
 			if verbose: print "Retrying with step size %f" % step_size
@@ -85,7 +85,7 @@ class Minimizer:
 
 		while not converged:
 			(value, gradient) = function.value_and_gradient(point)
-			if verbose: print "Value: %s, Gradient: %s" % (value, gradient)
+			if verbose: print "Found value and gradient"
 
 			# Calculate inverse hessian scaling
 			hessian_scale = 1.0
@@ -95,13 +95,15 @@ class Minimizer:
 
 			# Find and invert direction
 			direction = type(start_map)() - cls.__implicit_multiply(hessian_scale, gradient, history)
-			if verbose: print "Direction: %s" % repr(direction)
+			if verbose: print "Found Direction"
 
 			# Line search in the direction found
 			if iteration == 0:
 				next_point = cls.__line_minimize(function, point, direction, step_size_mult=0.01)
 			else:
 				next_point = cls.__line_minimize(function, point, direction, step_size_mult=0.5)
+
+			if verbose: print "Line minimization done"
 
 			# This function call should be cached for the next iteration
 			(next_value, next_gradient) = function.value_and_gradient(next_point)

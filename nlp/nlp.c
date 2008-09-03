@@ -1,5 +1,6 @@
 #include "Python.h"
 #include <math.h>
+#include "sloppy-math.h"
 
 #define NLP_MODULE
 
@@ -123,9 +124,9 @@ cnter_log_normalize(cnterobject *dd)
 
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
-	  log_sum += exp(PyFloat_AsDouble(value));
+	  log_sum += sloppy_exp(PyFloat_AsDouble(value));
 	}
-	
+
 	log_sum = log(log_sum);
 
 	i = 0;

@@ -142,7 +142,7 @@ class MaximumEntropyClassifier:
 		last_char = ''
 		for char in datum:
 			yield char
-#			yield last_char+char
+			yield last_char+char
 #			yield last_last_char + last_char + char
 			last_last_char = last_char
 			last_char = char

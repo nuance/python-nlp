@@ -10,6 +10,6 @@ setup(
   author           = 'Matt Jones',
   author_email     = 'matt@mhjones.org',
   license          = 'BSD License',
-  ext_modules      = [Extension(name='nlp', sources=['nlp.c']),
+  ext_modules      = [Extension(name='nlp', sources=['nlp.c', 'sloppy-math.c']),
 					  Extension(name='maxent', sources=['maxent.c']),]
 )
