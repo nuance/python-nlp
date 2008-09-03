@@ -7,14 +7,14 @@
 ** Pythonic
 ** Fast 
 * Timeline
-** Prototype counter / countermap
-** Naive Bayes
-*** Test that basic counter stuff works
-** FunctionMinimizer (as iterable?) / DifferentiableFunction
-** Encoding / Decoding / IndexLinearizer (fast vector indexing operations)
-** Maximum Entropy Model
+** Prototype counter / countermap [DONE]
+** Naive Bayes [DONE]
+*** Test that basic counter stuff works [DONE]
+** FunctionMinimizer (as iterable?) / DifferentiableFunction [DONE]
+** Encoding / Decoding / IndexLinearizer (fast vector indexing operations) [NOT NECESSARY]
+** Maximum Entropy Model [DONE]
 ** Fast math operations
-*** Approximate operations
+*** Approximate operations [DONE]
 *** Optimized vector operations
 *** Thread worker pools
 ** Chain models (HMM / MEMM)
