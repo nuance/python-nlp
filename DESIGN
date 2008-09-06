@@ -15,9 +15,25 @@
 ** Maximum Entropy Model [DONE]
 ** Fast math operations
 *** Approximate operations [DONE]
+*** Frozen Counters [Performance isn't as expected... Rearchitect]
+    Double arrays paired with PyString arrays & dictionary lookup
+    Support for BLAS routines for ultra-fast vector math?
+    Internal numpy compatibility?
+    Goal - lightweight wrapper over numpy.core.array [Slower than C
+    counter?! Shelving this one]
 *** Optimized vector operations
+    Normalize / Log normalize [DONE]
 *** Thread worker pools
+    Explore idea with background thread in counter for tracking sum / log sum
 ** Chain models (HMM / MEMM)
 *** Testing mostly
+*** Hard EM
+*** Viterbi decoding
+Lots of stuff to think about:
+    How much in C versus Python?
+    Data structure? Should the mesh be explicitly represented?
+    Maybe provide an iterable over ranked decodings?
+    How to handle pruning / approximate decoding schemes?
+*** Baum-Welch updates (soft EM)
 ** Computationally intensive chain-models (CRF)
 *** Test how well the framework scales (can it handle encodings / low-level access etc.)
