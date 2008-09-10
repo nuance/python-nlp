@@ -3,17 +3,22 @@
 import sys
 import random
 from itertools import izip
+from collections import defaultdict
+import math
 
 from countermap import CounterMap
 from nlp import counter as Counter
 
 class HiddenMarkovModel:
 	# Distribution over next state given current state
+	labels = list()
 	transition = CounterMap()
+	reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
 	# Distributions over mean & std. dev given state
 	emission_mean = Counter()
 	emission_stddev = Counter()
+	emission_prob_funcs = dict()
 
 	def train(self, labeled_sequence):
 		label_counts = Counter()
@@ -24,27 +29,80 @@ class HiddenMarkovModel:
 		for label, emission in labeled_sequence:
 			label_counts[label] += 1.0
 			self.emission_mean[label] += emission
-			if last_label: self.transition[last_label][label] += 1.0
-			else: self.transition["start"][label] += 1.0
+			if last_label:
+				self.transition[last_label][label] += 1.0
+			else:
+				self.transition["start"][label] += 1.0
 			last_label = label
 
 		self.transition.normalize()
+
+		# Construct reverse transition probabilities
+		for label, counter in self.transition.iteritems():
+			for sublabel, score in counter.iteritems():
+				self.reverse_transition[sublabel][label] = score
 
 		# Emissions
 		for label in self.emission_mean:
 			self.emission_mean[label] /= label_counts[label]
 
 		for label, emission in labeled_sequence:
-			self.emission_stddev[label] += (emission - self.emission_mean[label])**2 / label_counts[label]
+			if (label_counts[label] > 1):
+				# Unbiased sample variance (sqrt taken later to convert to std dev)
+				self.emission_stddev[label] += (emission - self.emission_mean[label])**2 / (label_counts[label] - 1)
 
 		for label in self.emission_stddev:
 			self.emission_stddev[label] = self.emission_stddev[label] ** (0.5)
 
-		print self.emission_mean
-		print self.emission_stddev
+		self.labels = self.emission_stddev.keys()
+
+		std_dev_coefficient = math.sqrt(2.0 * math.pi)
+		for label in self.labels:
+			self.emission_prob_funcs[label] = lambda x: 1 / (self.emission_stddev[label] * std_dev_coefficient) * \
+				math.exp(- (x - self.emission_mean[label])**2 / (2 * self.emission_stddev[label]**2))
+
+	def __get_emission_probs(self, emission):
+		# return a Counter distribution over labels given the emission
+		emission_prob = Counter()
+
+		for label in self.labels:
+			emission_prob[label] = self.emission_prob_funcs[label](emission)
+
+		return emission_prob
 
 	def label(self, emission_sequence):
-		pass
+		# This needs to perform viterbi decoding on the the emission sequence
+
+		# Backtracking pointers - backtrack[position] = {state : prev, ...}
+		backtrack = [defaultdict(lambda: None) for state in emission_sequence]
+
+		# Scores are indexed by pos + 1 (so we can initialize it with uniform probability, or the stationary if we have it)
+		scores = [Counter() for state in xrange(len(emission_sequence)+1)]
+		for label in self.labels: scores[0][label] += 1.0
+		scores[0].normalize()
+
+		for pos, emission in enumerate(emission_sequence):
+			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
+			emission_probs = self.__get_emission_probs(emission)
+			transition_probs = CounterMap()
+
+			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
+			# backtrack = argmax(^^)
+			for label in self.labels:
+				transition_scores = scores[pos] * self.reverse_transition[label]
+				scores[pos+1][label] = max(transition_scores.itervalues())
+				backtrack[pos][label] = transition_scores.arg_max()
+
+		# Now decode
+		states = list()
+		current = scores[-1].arg_max()
+		print "last state: %s" % current
+		for pos in xrange(len(backtrack)-1, 0, -1):
+			states.append(current)
+			current = backtrack[pos][current]
+
+		states.reverse()
+		return states
 
 	def __sample_transition(self, label):
 		sample = random.sample()
