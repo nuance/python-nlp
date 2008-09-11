@@ -49,24 +49,32 @@ class HiddenMarkovModel:
 		for label, emission in labeled_sequence:
 			if (label_counts[label] > 1):
 				# Unbiased sample variance (sqrt taken later to convert to std dev)
-				self.emission_stddev[label] += (emission - self.emission_mean[label])**2 / (label_counts[label] - 1)
+				self.emission_stddev[label] += (emission - self.emission_mean[label])**2
 
 		for label in self.emission_stddev:
-			self.emission_stddev[label] = self.emission_stddev[label] ** (0.5)
+			self.emission_stddev[label] = (self.emission_stddev[label] / (label_counts[label] - 1.0)) ** (0.5)
 
 		self.labels = self.emission_stddev.keys()
 
-		std_dev_coefficient = math.sqrt(2.0 * math.pi)
-		for label in self.labels:
-			self.emission_prob_funcs[label] = lambda x: 1 / (self.emission_stddev[label] * std_dev_coefficient) * \
-				math.exp(- (x - self.emission_mean[label])**2 / (2 * self.emission_stddev[label]**2))
+	def __gaussian_probability(self, label, emission):
+		print "calculating p(%.1f | %s): " % (emission, label)
+
+		coeff = 1.0 / (math.sqrt(2.0 * math.pi) * self.emission_stddev[label])
+		print "coeff: %f" % coeff
+
+		inner = math.exp(- (emission - self.emission_mean[label])**2 / (2 * self.emission_stddev[label]**2))
+		print "inner: %f" % inner
+
+		print "prob: %f" % (coeff * inner)
+
+		return coeff * inner
 
 	def __get_emission_probs(self, emission):
 		# return a Counter distribution over labels given the emission
 		emission_prob = Counter()
 
 		for label in self.labels:
-			emission_prob[label] = self.emission_prob_funcs[label](emission)
+			emission_prob[label] = self.__gaussian_probability(label, emission)
 
 		return emission_prob
 
@@ -83,13 +91,16 @@ class HiddenMarkovModel:
 
 		for pos, emission in enumerate(emission_sequence):
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
+			print "At pos %d (emission %.1f)" % (pos, emission)
 			emission_probs = self.__get_emission_probs(emission)
-			transition_probs = CounterMap()
+			print "Emission probs: %s" % emission_probs
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
 			for label in self.labels:
 				transition_scores = scores[pos] * self.reverse_transition[label]
+				transition_scores.normalize()
+				print "Scores into label %s: %s" % (label, transition_scores)
 				scores[pos+1][label] = max(transition_scores.itervalues())
 				backtrack[pos][label] = transition_scores.arg_max()
 
@@ -97,7 +108,7 @@ class HiddenMarkovModel:
 		states = list()
 		current = scores[-1].arg_max()
 		print "last state: %s" % current
-		for pos in xrange(len(backtrack)-1, 0, -1):
+		for pos in xrange(len(backtrack)-1, -1, -1):
 			states.append(current)
 			current = backtrack[pos][current]
 
@@ -127,6 +138,21 @@ class HiddenMarkovModel:
 		while True:
 			yield (state, self.__sample_emission(state))
 			state = self.__sample_transition(state)
+
+def debug_problem(args):
+	# Very simple chain for debugging purposes
+	states = ['1', '1', '1', '1', '3', '3', '3', '3']
+	emissions = [1.05, 1.0, 1.0, 1.0, 2.05, 2.0, 2.0, 2.0]
+
+	test_emissions = [1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
+
+	chain = HiddenMarkovModel()
+	chain.train(zip(states, emissions))
+
+	print chain.label(test_emissions)
+	print chain.transition
+	print chain.emission_mean
+	print chain.emission_stddev
 
 def toy_problem(args):
 	# Simulate a 3 state markov chain with transition matrix (given states in row vector):
@@ -194,7 +220,7 @@ def toy_problem(args):
 	guessed_labels = signal_decoder.label(test_emissions)
 	correct = sum(1 for guessed, correct in izip(guessed_labels, test_labels) if guessed == correct)
 
-	print "%d labels recovered correctly (%.2f%% correct out of %d)" % (correct, float(correct) / float(len(test_labels)), len(test_labels))
+	print "%d labels recovered correctly (%.2f%% correct out of %d)" % (correct, 100.0 * float(correct) / float(len(test_labels)), len(test_labels))
 
 if __name__ == "__main__":
-	toy_problem(sys.argv)
+	debug_problem(sys.argv)
