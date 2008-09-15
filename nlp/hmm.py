@@ -4,7 +4,6 @@ import sys
 import random
 from itertools import izip
 from collections import defaultdict
-import math
 
 from countermap import CounterMap
 from nlp import counter as Counter
@@ -15,10 +14,8 @@ class HiddenMarkovModel:
 	transition = CounterMap()
 	reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
-	# Distributions over mean & std. dev given state
-	emission_mean = Counter()
-	emission_stddev = Counter()
-	emission_prob_funcs = dict()
+	# Multinomial distribution over emissions given label
+	emission = CounterMap()
 
 	def train(self, labeled_sequence):
 		label_counts = Counter()
@@ -28,53 +25,31 @@ class HiddenMarkovModel:
 		# Transitions
 		for label, emission in labeled_sequence:
 			label_counts[label] += 1.0
-			self.emission_mean[label] += emission
+			self.emission[label][emission] += 1.0
 			if last_label:
 				self.transition[last_label][label] += 1.0
 			else:
 				self.transition["start"][label] += 1.0
 			last_label = label
 
-		self.transition.normalize()
-
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():
 			for sublabel, score in counter.iteritems():
 				self.reverse_transition[sublabel][label] = score
 
-		# Emissions
-		for label in self.emission_mean:
-			self.emission_mean[label] /= label_counts[label]
-
-		for label, emission in labeled_sequence:
-			if (label_counts[label] > 1):
-				# Unbiased sample variance (sqrt taken later to convert to std dev)
-				self.emission_stddev[label] += (emission - self.emission_mean[label])**2
-
-		for label in self.emission_stddev:
-			self.emission_stddev[label] = (self.emission_stddev[label] / (label_counts[label] - 1.0)) ** (0.5)
-
-		self.labels = self.emission_stddev.keys()
-
-	def __gaussian_probability(self, label, emission):
-		print "calculating p(%.1f | %s): " % (emission, label)
-
-		coeff = 1.0 / (math.sqrt(2.0 * math.pi) * self.emission_stddev[label])
-		print "coeff: %f" % coeff
-
-		inner = math.exp(- (emission - self.emission_mean[label])**2 / (2 * self.emission_stddev[label]**2))
-		print "inner: %f" % inner
-
-		print "prob: %f" % (coeff * inner)
-
-		return coeff * inner
+		self.transition.normalize()
+		self.emission.normalize()
+		self.reverse_transition.normalize()
+		self.labels = self.emission.keys()
 
 	def __get_emission_probs(self, emission):
 		# return a Counter distribution over labels given the emission
 		emission_prob = Counter()
 
 		for label in self.labels:
-			emission_prob[label] = self.__gaussian_probability(label, emission)
+			emission_prob[label] = self.emission[label][emission]
+
+		emission_prob.normalize()
 
 		return emission_prob
 
@@ -86,23 +61,36 @@ class HiddenMarkovModel:
 
 		# Scores are indexed by pos + 1 (so we can initialize it with uniform probability, or the stationary if we have it)
 		scores = [Counter() for state in xrange(len(emission_sequence)+1)]
-		for label in self.labels: scores[0][label] += 1.0
-		scores[0].normalize()
+		scores[0] = self.transition['start']
+		print "reverse: %s" % self.reverse_transition
 
 		for pos, emission in enumerate(emission_sequence):
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
-			print "At pos %d (emission %.1f)" % (pos, emission)
+			print "At pos %d (emission %s)" % (pos, emission)
 			emission_probs = self.__get_emission_probs(emission)
 			print "Emission probs: %s" % emission_probs
+			scores[pos].normalize()
+			print "Running scores: %s" % scores[pos]
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
 			for label in self.labels:
+				print "  Label %s" % label
+				print "\tScores (%s) * pr[transition into %s] (%s)" % (scores[pos].items(), label, self.reverse_transition[label].items())
 				transition_scores = scores[pos] * self.reverse_transition[label]
-				transition_scores.normalize()
-				print "Scores into label %s: %s" % (label, transition_scores)
-				scores[pos+1][label] = max(transition_scores.itervalues())
+				print "\tincoming scores: %s" % transition_scores
 				backtrack[pos][label] = transition_scores.arg_max()
+				print "\tselecting %s as backtrack (score %f)" % (backtrack[pos][label], scores[pos+1][label])
+
+				transition_scores *= emission_probs
+				print "\tScores into label %s: %s" % (label, transition_scores)
+				scores[pos+1][label] = max(transition_scores.itervalues())
+
+		for pos, (emission, back) in enumerate(zip(emission_sequence, backtrack)):
+			print "position %s (emission %s)"  % (pos, emission)
+			print back.items()
+			print scores[pos].items()
+		print "Reverse transitions: %s" % self.reverse_transition
 
 		# Now decode
 		states = list()
@@ -125,7 +113,13 @@ class HiddenMarkovModel:
 		assert False, "Should have returned a next state"
 
 	def __sample_emission(self, label):
-		return random.gauss(self.emission_mean[label], self.emission_stddev[label])
+		sample = random.sample()
+
+		for next, prob in self.emission[label].iteritems():
+			sample -= prob
+			if sample <= 0.0: return next
+
+		assert False, "Should have returned an emission"
 
 	def sample(self, start=None):
 		"""Returns a generator yielding a sequence of (state, emission) pairs
@@ -142,17 +136,20 @@ class HiddenMarkovModel:
 def debug_problem(args):
 	# Very simple chain for debugging purposes
 	states = ['1', '1', '1', '1', '3', '3', '3', '3']
-	emissions = [1.05, 1.0, 1.0, 1.0, 2.05, 2.0, 2.0, 2.0]
+	emissions = ['y', 'y', 'y', 'y', 'n', 'n', 'n', 'n']
 
-	test_emissions = [1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
+	test_emissions = [['y', 'y', 'y', 'y', 'n', 'n', 'n', 'n'], ['y', 'y', 'n'], ['y', 'n', 'n', 'n']]
 
 	chain = HiddenMarkovModel()
 	chain.train(zip(states, emissions))
 
-	print chain.label(test_emissions)
+	print "Label"
+	for emission_seq in test_emissions:
+		print chain.label(emission_seq)
+	print "Transition"
 	print chain.transition
-	print chain.emission_mean
-	print chain.emission_stddev
+	print "Emission"
+	print chain.emission
 
 def toy_problem(args):
 	# Simulate a 3 state markov chain with transition matrix (given states in row vector):
