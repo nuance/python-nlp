@@ -1,6 +1,5 @@
 from collections import defaultdict
 from math import log, exp
-from itertools import izip
 
 class Counter(defaultdict):
 
@@ -27,8 +26,13 @@ class Counter(defaultdict):
 	def normalize(self):
 		sum = self.total_count()
 
-		for (key, value) in self.items():
-			self[key] = value / sum
+		if sum == 0.0:
+			uniform = 1 / len(self.iteritems())
+			for key in self.iterkeys():
+				self[key] = uniform
+
+		for (key, value) in self.iterkeys():
+			self[key] /= sum
 
 	def log_normalize(self):
 		log_sum = log(sum(exp(val) for val in self.itervalues()))

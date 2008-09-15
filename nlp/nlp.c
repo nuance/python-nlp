@@ -98,6 +98,26 @@ cnter_normalize(cnterobject *dd)
 		sum += PyFloat_AsDouble(value);
 	}
 	
+	if (sum == 0.0) {
+	  Py_ssize_t len = PyDict_Size((PyObject*)&(dd->dict));
+	  PyObject *uniform = PyFloat_FromDouble(1.0 / (double)len);
+
+	  i = 0;
+	  while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+		int ok;
+
+		ok = PyDict_SetItem((PyObject*)&(dd->dict), key, uniform);
+		if (ok < 0) {
+		  Py_DECREF(uniform);
+		  return NULL;
+		}
+	  }
+	  Py_DECREF(uniform);
+
+	  Py_INCREF(Py_None);
+	  return Py_None;
+	}
+
 	i = 0;
 	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
 	  int ok;
