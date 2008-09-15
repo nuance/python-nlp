@@ -8,6 +8,9 @@ from collections import defaultdict
 from countermap import CounterMap
 from nlp import counter as Counter
 
+START_LABEL = "<START>"
+STOP_LABEL = "<STOP>"
+
 class HiddenMarkovModel:
 	# Distribution over next state given current state
 	labels = list()
@@ -17,10 +20,21 @@ class HiddenMarkovModel:
 	# Multinomial distribution over emissions given label
 	emission = CounterMap()
 
+	def __pad_sequence(self, sequence, pairs=False):
+		if pairs: padding = [(START_LABEL, START_LABEL),]
+		else: padding = [START_LABEL,]
+		padding.extend(sequence)
+		if pairs: padding.append((STOP_LABEL, STOP_LABEL))
+		else: padding.append(STOP_LABEL)
+
+		return padding
+
 	def train(self, labeled_sequence):
 		label_counts = Counter()
 		# Currently this assumes the HMM is multinomial
 		last_label = None
+
+		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
 
 		# Transitions
 		for label, emission in labeled_sequence:
@@ -28,19 +42,16 @@ class HiddenMarkovModel:
 			self.emission[label][emission] += 1.0
 			if last_label:
 				self.transition[last_label][label] += 1.0
-			else:
-				self.transition["start"][label] += 1.0
 			last_label = label
+
+		self.transition.normalize()
+		self.emission.normalize()
+		self.labels = self.emission.keys()
 
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():
 			for sublabel, score in counter.iteritems():
 				self.reverse_transition[sublabel][label] = score
-
-		self.transition.normalize()
-		self.emission.normalize()
-		self.reverse_transition.normalize()
-		self.labels = self.emission.keys()
 
 	def __get_emission_probs(self, emission):
 		# return a Counter distribution over labels given the emission
@@ -55,50 +66,47 @@ class HiddenMarkovModel:
 
 	def label(self, emission_sequence):
 		# This needs to perform viterbi decoding on the the emission sequence
+		emission_sequence = self.__pad_sequence(emission_sequence)
 
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
-		backtrack = [defaultdict(lambda: None) for state in emission_sequence]
+		backtrack = [dict() for state in emission_sequence]
 
-		# Scores are indexed by pos + 1 (so we can initialize it with uniform probability, or the stationary if we have it)
-		scores = [Counter() for state in xrange(len(emission_sequence)+1)]
-		scores[0] = self.transition['start']
-		print "reverse: %s" % self.reverse_transition
+		# Scores are indexed by pos - 1 in the padded sequence(so we can initialize it with uniform probability, or the stationary if we have it)
+		scores = [Counter() for state in emission_sequence]
 
-		for pos, emission in enumerate(emission_sequence):
+		# Start is hardcoded
+		scores[0][START_LABEL] = 1.0
+
+		for pos, emission in enumerate(emission_sequence[1:]):
+			print "Pos %d (emission %s)" % (pos, emission)
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
-			print "At pos %d (emission %s)" % (pos, emission)
 			emission_probs = self.__get_emission_probs(emission)
-			print "Emission probs: %s" % emission_probs
+			print "  Emission probs:", emission_probs
 			scores[pos].normalize()
-			print "Running scores: %s" % scores[pos]
+			print "  Scores:", scores[pos]
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
 			for label in self.labels:
-				print "  Label %s" % label
-				print "\tScores (%s) * pr[transition into %s] (%s)" % (scores[pos].items(), label, self.reverse_transition[label].items())
 				transition_scores = scores[pos] * self.reverse_transition[label]
-				print "\tincoming scores: %s" % transition_scores
 				backtrack[pos][label] = transition_scores.arg_max()
-				print "\tselecting %s as backtrack (score %f)" % (backtrack[pos][label], scores[pos+1][label])
+				print "\tbacktrack @ (%s, %d): %s" % (label, pos, backtrack[pos][label])
 
 				transition_scores *= emission_probs
-				print "\tScores into label %s: %s" % (label, transition_scores)
+				print "\ttransition scores: ", transition_scores
 				scores[pos+1][label] = max(transition_scores.itervalues())
-
-		for pos, (emission, back) in enumerate(zip(emission_sequence, backtrack)):
-			print "position %s (emission %s)"  % (pos, emission)
-			print back.items()
-			print scores[pos].items()
-		print "Reverse transitions: %s" % self.reverse_transition
+				print "\tscore @ (%s, %d): %s" % (label, pos, scores[pos+1][label])
 
 		# Now decode
 		states = list()
-		current = scores[-1].arg_max()
-		print "last state: %s" % current
-		for pos in xrange(len(backtrack)-1, -1, -1):
-			states.append(current)
+		current = STOP_LABEL
+		print "Kicking off backtracking at %s" % current
+		for pos in xrange(len(backtrack)-2, 0, -1):
 			current = backtrack[pos][current]
+			print "Backtrack @ %d: %s => %s" % (pos, backtrack[pos], current)
+			states.append(current)
+
+		print "Backtrack finished at %s" % backtrack[1][current]
 
 		states.reverse()
 		return states
@@ -135,17 +143,21 @@ class HiddenMarkovModel:
 
 def debug_problem(args):
 	# Very simple chain for debugging purposes
-	states = ['1', '1', '1', '1', '3', '3', '3', '3']
-	emissions = ['y', 'y', 'y', 'y', 'n', 'n', 'n', 'n']
+	states = ['1', '1', '1', '2', '3', '3', '3', '3']
+	emissions = ['y', 'm', 'y', 'm', 'n', 'm', 'n', 'm']
 
-	test_emissions = [['y', 'y', 'y', 'y', 'n', 'n', 'n', 'n'], ['y', 'y', 'n'], ['y', 'n', 'n', 'n']]
+	test_emissions = [['y', 'y', 'y', 'm', 'n', 'm', 'n', 'm'], ['y', 'm', 'n'], ['m', 'n', 'n', 'n']]
+	test_labels = [['1', '1', '1', '2', '3', '3', '3', '3'], ['1', '2', '3'], ['2', '3', '3', '3']]
 
 	chain = HiddenMarkovModel()
 	chain.train(zip(states, emissions))
 
 	print "Label"
-	for emission_seq in test_emissions:
-		print chain.label(emission_seq)
+	for emissions, labels in zip(test_emissions, test_labels):
+		print emissions
+		guessed_labels = chain.label(emissions)
+		print "Guessed: %s" % guessed_labels
+		print "Correct: %s" % labels
 	print "Transition"
 	print chain.transition
 	print "Emission"
@@ -181,11 +193,17 @@ def toy_problem(args):
 
 		assert False, "Should have returned a next state"
 
-	# And gaussian emissions (state, (mean, std dev)): {1 : (0.5, 1), 2 : (0.75, 0.1), 3 : (0.4, 0.3)}
-	emissions = {'1' : (0.5, 1), '2' : (0.75, 0.1), '3' : (0.4, 0.3)}
+	# And emissions (state, (counter distribution)): {1 : (yes : 0.5, sure : 0.5), 2 : (maybe : 0.75, who_knows : 0.25), 3 : (no : 1)}
+	emissions = {'1' : {'yes' : 0.5, 'sure' : 0.5}, '2' : {'maybe' : 0.75, 'who_knows' : 0.25}, '3' : {'no' : 1.0}}
 
 	def sample_emission(label):
-		return random.gauss(*emissions[label])
+		choice = random.random()
+
+		for emission, prob in emissions[label].iteritems():
+			choice -= prob
+			if choice <= 0.0: return emission
+
+		assert False, "Should have returned an emission"
 	
 	# Create the training/test data
 	states = ['1', '2', '3']
