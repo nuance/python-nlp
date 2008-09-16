@@ -115,7 +115,7 @@ class HiddenMarkovModel:
 		return states
 
 	def __sample_transition(self, label):
-		sample = random.sample()
+		sample = random.random()
 
 		for next, prob in self.transition[label].iteritems():
 			sample -= prob
@@ -124,7 +124,8 @@ class HiddenMarkovModel:
 		assert False, "Should have returned a next state"
 
 	def __sample_emission(self, label):
-		sample = random.sample()
+		if label in [START_LABEL, STOP_LABEL]: return label
+		sample = random.random()
 
 		for next, prob in self.emission[label].iteritems():
 			sample -= prob
@@ -146,8 +147,8 @@ class HiddenMarkovModel:
 
 def debug_problem(args):
 	# Very simple chain for debugging purposes
-	states = ['1', '1', '1', '2', '3', '3', '3', '3']
-	emissions = ['y', 'm', 'y', 'm', 'n', 'm', 'n', 'm']
+	states = ['1', '1', '1', '2', '3', '3', '3', '3', STOP_LABEL, START_LABEL, '2', '3', '3']
+	emissions = ['y', 'm', 'y', 'm', 'n', 'm', 'n', 'm', STOP_LABEL, START_LABEL, 'm', 'n', 'n']
 
 	test_emissions = [['y', 'y', 'y', 'm', 'n', 'm', 'n', 'm'], ['y', 'm', 'n'], ['m', 'n', 'n', 'n']]
 	test_labels = [['1', '1', '1', '2', '3', '3', '3', '3'], ['1', '2', '3'], ['2', '3', '3', '3']]
@@ -167,6 +168,10 @@ def debug_problem(args):
 	print chain.transition
 	print "Emission"
 	print chain.emission
+
+	sample = [val for _, val in izip(xrange(10), chain.sample())]
+	print [label for label, _ in sample]
+	print [emission for _, emission in sample]
 
 def toy_problem(args):
 	# Simulate a 3 state markov chain with transition matrix (given states in row vector):
@@ -202,6 +207,7 @@ def toy_problem(args):
 	emissions = {'1' : {'yes' : 0.5, 'sure' : 0.5}, '2' : {'maybe' : 0.75, 'who_knows' : 0.25}, '3' : {'no' : 1.0}}
 
 	def sample_emission(label):
+		if label in [START_LABEL, STOP_LABEL]: return label
 		choice = random.random()
 
 		for emission, prob in emissions[label].iteritems():
@@ -223,8 +229,14 @@ def toy_problem(args):
 			yield next
 			next = sample_transition(next)
 
-	training_labels = [val for _, val in izip(xrange(10000), label_generator(start))]
+	training_labels = [val for _, val in izip(xrange(1000), label_generator('1'))]
+	training_labels.extend((START_LABEL, STOP_LABEL))
+	training_labels.extend([val for _, val in izip(xrange(1000), label_generator('2'))])
+	training_labels.extend((START_LABEL, STOP_LABEL))
+	training_labels.extend([val for _, val in izip(xrange(1000), label_generator('3'))])
+
 	training_emissions = [sample_emission(label) for label in training_labels]
+
 	training_signal = zip(training_labels, training_emissions)
 
 	# Training phase
