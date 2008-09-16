@@ -78,35 +78,38 @@ class HiddenMarkovModel:
 		scores[0][START_LABEL] = 1.0
 
 		for pos, emission in enumerate(emission_sequence[1:]):
-			print "Pos %d (emission %s)" % (pos, emission)
+#			print "Pos %d (emission %s)" % (pos, emission)
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
 			emission_probs = self.__get_emission_probs(emission)
-			print "  Emission probs:", emission_probs
+#			print "  Emission probs:", emission_probs
 			scores[pos].normalize()
-			print "  Scores:", scores[pos]
+#			print "  Scores:", scores[pos]
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
 			for label in self.labels:
+#				print "  label %s" % label
 				transition_scores = scores[pos] * self.reverse_transition[label]
+#				print "\treverse_transitions:", self.reverse_transition[label]
+#				print "\tscores (pre-emission):", transition_scores
 				backtrack[pos][label] = transition_scores.arg_max()
-				print "\tbacktrack @ (%s, %d): %s" % (label, pos, backtrack[pos][label])
-
-				transition_scores *= emission_probs
-				print "\ttransition scores: ", transition_scores
+#				print "\tbacktrack @ (%s, %d): %s" % (label, pos, backtrack[pos][label])
+#				print emission_probs[label], transition_scores * emission_probs[label]
+				transition_scores *= emission_probs[label]
+#				print "\ttransition scores: ", transition_scores
 				scores[pos+1][label] = max(transition_scores.itervalues())
-				print "\tscore @ (%s, %d): %s" % (label, pos, scores[pos+1][label])
+#				print "\tscore @ (%s, %d): %s" % (label, pos, scores[pos+1][label])
 
 		# Now decode
 		states = list()
 		current = STOP_LABEL
-		print "Kicking off backtracking at %s" % current
+#		print "Kicking off backtracking at %s" % current
 		for pos in xrange(len(backtrack)-2, 0, -1):
 			current = backtrack[pos][current]
-			print "Backtrack @ %d: %s => %s" % (pos, backtrack[pos], current)
+#			print "Backtrack @ %d: %s => %s" % (pos, backtrack[pos], current)
 			states.append(current)
 
-		print "Backtrack finished at %s" % backtrack[1][current]
+#		print "Backtrack finished at %s" % backtrack[1][current]
 
 		states.reverse()
 		return states
@@ -148,6 +151,8 @@ def debug_problem(args):
 
 	test_emissions = [['y', 'y', 'y', 'm', 'n', 'm', 'n', 'm'], ['y', 'm', 'n'], ['m', 'n', 'n', 'n']]
 	test_labels = [['1', '1', '1', '2', '3', '3', '3', '3'], ['1', '2', '3'], ['2', '3', '3', '3']]
+
+#	test_emissions, test_labels = ([['m', 'n', 'n', 'n']], [['2', '3', '3', '3']])
 
 	chain = HiddenMarkovModel()
 	chain.train(zip(states, emissions))
@@ -238,4 +243,4 @@ def toy_problem(args):
 	print "%d labels recovered correctly (%.2f%% correct out of %d)" % (correct, 100.0 * float(correct) / float(len(test_labels)), len(test_labels))
 
 if __name__ == "__main__":
-	debug_problem(sys.argv)
+	toy_problem(sys.argv)
