@@ -214,12 +214,43 @@ cnter_arg_max(cnterobject *dd)
 PyDoc_STRVAR(cnter_arg_max_doc, "D.arg_max() -> arg max of the items in D");
 
 static PyObject *
+cnter_iscale(cnterobject *dd, PyObject *other)
+{
+  Py_ssize_t i;
+  PyObject *key, *value;
+  double scale;
+
+  if (PyInt_Check(other)) scale = (double)PyInt_AsLong(other);
+  else if (PyLong_Check(other)) scale = (double)PyLong_AsLong(other);
+  else scale = PyFloat_AsDouble(other);
+
+  i = 0;
+  while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	int ok;
+
+	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * scale);
+	ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	Py_DECREF(newValue);
+
+	if (ok < 0) {
+	  return NULL;
+	}
+  }
+
+  Py_INCREF((PyObject*)dd);
+  return (PyObject*)dd;
+}
+
+static PyObject *
 cnter_imul(cnterobject *dd, PyObject *other)
 {
 	Py_ssize_t i;
 	PyObject *key, *value;
 	// TODO: check that other is a counter
-	
+
+	if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
+	  return cnter_iscale(dd, other);
+
 	cnterobject *other_cnter = (cnterobject*)other;
 
 	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys

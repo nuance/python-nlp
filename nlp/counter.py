@@ -45,6 +45,11 @@ class Counter(defaultdict):
 
 	# mul => element-wise multiplication
 	def __imul__(self, other):
+		if isinstance(other, (int, long, float)):
+			for key in self.keys():
+				self[key] *= other
+			return self
+
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
 		
