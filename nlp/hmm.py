@@ -64,6 +64,19 @@ class HiddenMarkovModel:
 
 		return emission_prob
 
+	def score(self, labeled_sequence):
+		score = 1.0
+		last_label = START_LABEL
+
+		for label, emission in labeled_sequence:
+			score *= self.emission[label][emission]
+			score *= self.transition[last_label][label]
+			last_label = label
+
+		score *= self.transition[last_label][STOP_LABEL]
+
+		return score
+
 	def label(self, emission_sequence):
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
@@ -164,6 +177,7 @@ def debug_problem(args):
 		guessed_labels = chain.label(emissions)
 		print "Guessed: %s" % guessed_labels
 		print "Correct: %s" % labels
+		assert chain.score(zip(guessed_labels, emissions)) >= chain.score(zip(labels, emissions)), "Decoder sub-optimality"
 	print "Transition"
 	print chain.transition
 	print "Emission"
