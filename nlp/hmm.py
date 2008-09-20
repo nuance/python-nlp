@@ -155,11 +155,11 @@ def debug_problem(args):
 
 	print "Label"
 	for emissions, labels in zip(test_emissions, test_labels):
-		print emissions
 		guessed_labels = chain.label(emissions)
-		print "Guessed: %s (score %f)" % (guessed_labels, chain.score(zip(guessed_labels, emissions)))
-		print "Correct: %s (score %f)" % (labels, chain.score(zip(guessed_labels, emissions)))
-		assert chain.score(zip(guessed_labels, emissions)) > chain.score(zip(labels, emissions)), "Decoder sub-optimality"
+		if guessed_labels != labels:
+			print "Guessed: %s (score %f)" % (guessed_labels, chain.score(zip(guessed_labels, emissions)))
+			print "Correct: %s (score %f)" % (labels, chain.score(zip(labels, emissions)))
+			assert chain.score(zip(guessed_labels, emissions)) > chain.score(zip(labels, emissions)), "Decoder sub-optimality"
 	print "Transition"
 	print chain.transition
 	print "Emission"
