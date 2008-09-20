@@ -20,6 +20,8 @@ class HiddenMarkovModel:
 
 	# Multinomial distribution over emissions given label
 	emission = CounterMap()
+	# p(label | emission)
+	label_emissions = CounterMap()
 
 	def __pad_sequence(self, sequence, pairs=False):
 		if pairs: padding = [(START_LABEL, START_LABEL),]
@@ -41,10 +43,12 @@ class HiddenMarkovModel:
 		for label, emission in labeled_sequence:
 			label_counts[label] += 1.0
 			self.emission[label][emission] += 1.0
+			self.label_emissions[emission][label] += 1.0
 			if last_label:
 				self.transition[last_label][label] += 1.0
 			last_label = label
 
+		self.label_emissions.normalize()
 		self.transition.normalize()
 		self.emission.normalize()
 		self.labels = self.emission.keys()
@@ -54,21 +58,12 @@ class HiddenMarkovModel:
 			for sublabel, score in counter.iteritems():
 				self.reverse_transition[sublabel][label] = score
 
-	def __get_emission_probs(self, emission):
-		# return a Counter distribution over labels given the emission
-		emission_prob = Counter()
-
-		for label in self.labels:
-			emission_prob[label] = self.emission[label][emission]
-
-		emission_prob.normalize()
-
-		return emission_prob
-
 	def score(self, labeled_sequence):
 		score = 1.0
 		last_label = START_LABEL
 
+		print labeled_sequence
+		
 		for label, emission in labeled_sequence:
 			score *= self.emission[label][emission]
 			score *= self.transition[last_label][label]
@@ -93,8 +88,7 @@ class HiddenMarkovModel:
 
 		for pos, emission in enumerate(emission_sequence[1:]):
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
-			emission_probs = self.__get_emission_probs(emission)
-			scores[pos].normalize()
+			emission_probs = self.label_emissions[emission]
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
@@ -163,9 +157,9 @@ def debug_problem(args):
 	for emissions, labels in zip(test_emissions, test_labels):
 		print emissions
 		guessed_labels = chain.label(emissions)
-		print "Guessed: %s" % guessed_labels
-		print "Correct: %s" % labels
-		assert chain.score(zip(guessed_labels, emissions)) >= chain.score(zip(labels, emissions)), "Decoder sub-optimality"
+		print "Guessed: %s (score %f)" % (guessed_labels, chain.score(zip(guessed_labels, emissions)))
+		print "Correct: %s (score %f)" % (labels, chain.score(zip(guessed_labels, emissions)))
+		assert chain.score(zip(guessed_labels, emissions)) > chain.score(zip(labels, emissions)), "Decoder sub-optimality"
 	print "Transition"
 	print chain.transition
 	print "Emission"

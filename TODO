@@ -3,6 +3,6 @@ Near-horizon goals (loosely pulled from DESIGN, but more pragmatic, not in any p
 - Counter in-place scalar ops
 + HMM
 - Higher-order hmm
-- Penn treebank reader
++ Penn treebank reader
 - Analysis tool for classifiers / features (for NB & MaxEnt)
 - Verifiably open datasets / standard data sets
