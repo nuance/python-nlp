@@ -2,11 +2,12 @@
 
 import sys
 import random
-from itertools import izip
-from collections import defaultdict
+from itertools import izip, islice
+from time import time
 
 from countermap import CounterMap
 from nlp import counter as Counter
+from penntreebankreader import PennTreebankReader
 
 START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
@@ -99,9 +100,10 @@ class HiddenMarkovModel:
 			# backtrack = argmax(^^)
 			for label in self.labels:
 				transition_scores = scores[pos] * self.reverse_transition[label]
-				backtrack[pos][label] = transition_scores.arg_max()
+				arg_max = transition_scores.arg_max()
+				backtrack[pos][label] = arg_max
 				transition_scores *= emission_probs[label]
-				scores[pos+1][label] = max(transition_scores.itervalues())
+				scores[pos+1][label] = transition_scores[arg_max]
 
 		# Now decode
 		states = list()
@@ -254,5 +256,72 @@ def toy_problem(args):
 
 	print "%d labels recovered correctly (%.2f%% correct out of %d)" % (correct, 100.0 * float(correct) / float(len(test_labels)), len(test_labels))
 
+
+def merge_stream(stream):
+	# Combine sentences into one long string, with each sentence start with <START> and ending with <STOP>
+	# [1:-2] cuts the leading STOP_LABEL and the trailing START_LABEL
+	sentences = []
+	tag_stream = []
+	for tags, sentence in stream:
+		sentences.append(START_LABEL)
+		tag_stream.append(START_LABEL)
+		for word in sentence:
+			sentences.append(word)
+		for tag in tags:
+			tag_stream.append(tag)
+		sentences.append(STOP_LABEL)
+		tag_stream.append(STOP_LABEL)
+
+	return zip(tag_stream, sentences)
+
+def pos_problem(args):
+	dataset_size = None
+	if len(args) > 0: dataset_size = int(args[0])
+	# Load the dataset
+	print "Loading dataset"
+	start = time()
+	if dataset_size: tagged_sentences = list(islice(PennTreebankReader.read_pos_tags_from_directory("data/wsj"), dataset_size))
+	else: tagged_sentences = list(PennTreebankReader.read_pos_tags_from_directory("data/wsj"))
+	stop = time()
+	print "Reading: %f" % (stop-start)
+
+	print "Creating streams"
+	start = time()
+	training_sentences = tagged_sentences[0:len(tagged_sentences)*4/5]
+	validation_sentences = tagged_sentences[len(tagged_sentences)*8/10+1:len(tagged_sentences)*9/10]
+	testing_sentences = tagged_sentences[len(tagged_sentences)*9/10+1:]
+	print "Training: %d" % len(training_sentences)
+	print "Validation: %d" % len(validation_sentences)
+	print "Testing: %d" % len(testing_sentences)
+	
+	training_stream, validation_stream, testing_stream = map(merge_stream, (training_sentences, validation_sentences, testing_sentences))
+	stop = time()
+	print "Streaming: %f" % (stop-start)
+
+	print "Training"
+	start = time()
+	pos_tagger = HiddenMarkovModel()
+	pos_tagger.train(training_stream[1:-2])
+	stop = time()
+	print "Training: %f" % (stop-start)
+
+	print "Testing"
+	start = time()
+	correct_labels = [tag for tag, _ in testing_stream[1:-2]]
+	guessed_labels = pos_tagger.label([word for _, word in testing_stream[1:-2]])
+	num_correct = 0
+	for correct, guessed in izip(correct_labels, guessed_labels):
+		if correct == START_LABEL or correct == STOP_LABEL: continue
+		if correct == guessed: num_correct += 1
+	stop = time()
+	print "Testing: %f" % (stop-start)
+
+	print "%d correct (%.3f%% of %d)" % (num_correct, 100.0 * float(num_correct) / float(len(correct_labels)), len(correct_labels))
+
+def main(args):
+	if args[0] == 'toy': toy_problem(args[1:])
+	elif args[0] == 'debug': debug_problem(args[1:])
+	elif args[0] == 'pos': pos_problem(args[1:])
+
 if __name__ == "__main__":
-	toy_problem(sys.argv)
+	main(sys.argv[1:])

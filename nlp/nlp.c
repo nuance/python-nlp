@@ -214,6 +214,29 @@ cnter_arg_max(cnterobject *dd)
 PyDoc_STRVAR(cnter_arg_max_doc, "D.arg_max() -> arg max of the items in D");
 
 static PyObject *
+cnter_max(cnterobject *dd)
+{
+	Py_ssize_t i;
+	PyObject *key, *value;
+	double max = 0.0;
+	double running;
+	int found = 0;
+
+	i = 0;
+	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+		running = PyFloat_AsDouble(value);
+		if (max < running || found == 0) {
+			max = running;
+			found = 1;
+		}
+	}
+
+	return PyFloat_FromDouble(max);
+}
+
+PyDoc_STRVAR(cnter_max_doc, "D.max() -> max of the items in D");
+
+static PyObject *
 cnter_iscale(cnterobject *dd, PyObject *other)
 {
   Py_ssize_t i;
@@ -609,6 +632,7 @@ static PyMethodDef cnter_methods[] = {
 	 cnter_total_count_doc},
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
 	 cnter_arg_max_doc},
+	{"max", (PyCFunction)cnter_max, METH_NOARGS, cnter_max_doc},
 	{NULL}
 };
 // 

@@ -31,7 +31,8 @@ class PennTreebankReader:
 				tag, word = pair.strip("()").split()
 				tags.append(tag)
 				words.append(word)
-			sentences.append((tags, words))
+			if len(tags) > 0:
+				sentences.append((tags, words))
 
 		tree_file.close()
 
