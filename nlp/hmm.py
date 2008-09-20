@@ -89,6 +89,7 @@ class HiddenMarkovModel:
 		for pos, emission in enumerate(emission_sequence[1:]):
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
 			emission_probs = self.label_emissions[emission]
+			scores[pos].normalize()
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
@@ -302,11 +303,16 @@ def pos_problem(args):
 	print "Testing"
 	start = time()
 	correct_labels = [tag for tag, _ in testing_stream[1:-2]]
+	emissions = [word for _, word in testing_stream[1:-2]]
 	guessed_labels = pos_tagger.label([word for _, word in testing_stream[1:-2]])
 	num_correct = 0
 	for correct, guessed in izip(correct_labels, guessed_labels):
 		if correct == START_LABEL or correct == STOP_LABEL: continue
 		if correct == guessed: num_correct += 1
+
+	if correct_labels != guessed_labels:
+		assert chain.score(zip(guessed_labels, emissions)) > chain.score(zip(correct_labels, emissions)), "Decoder sub-optimality"
+
 	stop = time()
 	print "Testing: %f" % (stop-start)
 
