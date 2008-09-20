@@ -62,8 +62,6 @@ class HiddenMarkovModel:
 		score = 1.0
 		last_label = START_LABEL
 
-		print labeled_sequence
-		
 		for label, emission in labeled_sequence:
 			score *= self.emission[label][emission]
 			score *= self.transition[last_label][label]
@@ -311,7 +309,9 @@ def pos_problem(args):
 		if correct == guessed: num_correct += 1
 
 	if correct_labels != guessed_labels:
-		assert chain.score(zip(guessed_labels, emissions)) > chain.score(zip(correct_labels, emissions)), "Decoder sub-optimality"
+		guessed_score = pos_tagger.score(zip(guessed_labels, emissions))
+		correct_score = pos_tagger.score(zip(correct_labels, emissions))
+		assert guessed_score >= correct_score, "Decoder sub-optimality (%f for guess, %f for correct)" % (guessed_score, correct_score)
 
 	stop = time()
 	print "Testing: %f" % (stop-start)
