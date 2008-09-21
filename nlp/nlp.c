@@ -471,10 +471,40 @@ cnter_add(cnterobject *dd, PyObject *other)
 }
 
 static PyObject *
+cnter_iadd_scalar(PyObject *dd, PyObject *other)
+{
+	Py_ssize_t i;
+	double other_value;
+	PyObject *key, *value;
+
+	if (PyInt_Check(other)) other_value = (double)PyInt_AsLong(other);
+	else if (PyLong_Check(other)) other_value = (double)PyLong_AsLong(other);
+	else other_value = PyFloat_AsDouble(other);
+
+	i = 0;
+	while (PyDict_Next(dd, &i, &key, &value)) {
+	  int ok;
+		
+	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) + other_value);
+	  ok = PyDict_SetItem(dd, key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0)
+		return NULL;
+	}
+
+	Py_INCREF(dd);
+	return dd;
+}
+
+static PyObject *
 cnter_iadd(PyObject *dd, PyObject *other)
 {
 	Py_ssize_t i;
 	PyObject *key, *value;
+
+	if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
+	  return cnter_iadd_scalar(dd, other);
 
 	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {
 	  PyErr_BadArgument();
