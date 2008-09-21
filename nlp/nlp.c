@@ -8,6 +8,7 @@
 
 typedef struct {
   PyDictObject dict;
+  double default_value;
 } cnterobject;
 
 /* counter type *********************************************************/
@@ -25,7 +26,7 @@ PyDoc_STRVAR(cnter_missing_doc,
 static PyObject *
 cnter_missing(cnterobject *dd, PyObject *key)
 {
-	PyObject *value = PyFloat_FromDouble(0.0);
+	PyObject *value = PyFloat_FromDouble(dd->default_value);
 	if (PyObject_SetItem((PyObject *)dd, key, value) < 0) {
 		Py_DECREF(value);
 		return NULL;
@@ -237,6 +238,22 @@ cnter_max(cnterobject *dd)
 PyDoc_STRVAR(cnter_max_doc, "D.max() -> max of the items in D");
 
 static PyObject *
+cnter_set_default(cnterobject *dd, PyObject *number)
+{
+  if (!(PyInt_Check(number) || PyFloat_Check(number) || PyLong_Check(number)))
+	return NULL;
+
+  if (PyInt_Check(number)) dd->default_value = (double)PyInt_AsLong(number);
+  else if (PyLong_Check(number)) dd->default_value = (double)PyLong_AsLong(number);
+  else dd->default_value = PyFloat_AsDouble(number);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+PyDoc_STRVAR(cnter_set_default_doc, "D.set_default(number) -> D.__missing__() now returns number");
+
+static PyObject *
 cnter_iscale(cnterobject *dd, PyObject *other)
 {
   Py_ssize_t i;
@@ -278,7 +295,7 @@ cnter_imul(cnterobject *dd, PyObject *other)
 
 	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
 	i = 0;
-	PyObject *defaultValue = PyFloat_FromDouble(0.0);
+	PyObject *defaultValue = PyFloat_FromDouble(dd->default_value);
 	while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 		int contains = PyDict_Contains((PyObject*)&(dd->dict), key);
 		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
@@ -371,7 +388,7 @@ cnter_mul(cnterobject *dd, PyObject *other)
 
   // Walk through all the keys in other and fetch them from ret_cnter, thus creating 0.0 items for any missing keys
   i = 0;
-  PyObject *defaultValue = PyFloat_FromDouble(0.0);
+  PyObject *defaultValue = PyFloat_FromDouble(dd->default_value);
 
   while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 	int contains = PyDict_Contains((PyObject*)&(ret_cnter->dict), key);
@@ -431,7 +448,7 @@ cnter_add(cnterobject *dd, PyObject *other)
 
   // Walk through all the keys in other and insert them into ret_cnter
   i = 0;
-  PyObject *defaultValue = PyFloat_FromDouble(0.0);
+  PyObject *defaultValue = PyFloat_FromDouble(dd->default_value);
 
   while (PyDict_Next((PyObject*)&(other_cnter->dict), &i, &key, &value)) {
 	int contains = PyDict_Contains((PyObject*)&(ret_cnter->dict), key);
@@ -513,7 +530,7 @@ cnter_iadd(PyObject *dd, PyObject *other)
 
 	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
 	i = 0;
-	PyObject *defaultValue = PyFloat_FromDouble(0.0);
+	PyObject *defaultValue = PyFloat_FromDouble(((cnterobject*)dd)->default_value);
 	while (PyDict_Next(other, &i, &key, &value)) {
 		int contains = PyDict_Contains(dd, key);
 		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
@@ -561,7 +578,7 @@ cnter_isub(PyObject *dd, PyObject *other)
 
 	// Walk through all the keys in other and fetch them from dd, thus creating 0.0 items for any missing keys
 	i = 0;
-	PyObject *defaultValue = PyFloat_FromDouble(0.0);
+	PyObject *defaultValue = PyFloat_FromDouble(((cnterobject*)dd)->default_value);
 	while (PyDict_Next(other, &i, &key, &value)) {
 		int contains = PyDict_Contains(dd, key);
 		// If the key is not in the dictionary, try to set it to the default value (and fail on exception as appropriate)
@@ -663,6 +680,7 @@ static PyMethodDef cnter_methods[] = {
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
 	 cnter_arg_max_doc},
 	{"max", (PyCFunction)cnter_max, METH_NOARGS, cnter_max_doc},
+	{"set_default", (PyCFunction)cnter_set_default, METH_NOARGS, cnter_set_default_doc},
 	{NULL}
 };
 // 
@@ -726,6 +744,9 @@ cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
   int result = PyDict_Type.tp_init(self, newargs, kwds);
   Py_DECREF(newargs);
   Py_DECREF(kwds);
+
+  ((cnterobject*)self)->default_value = 0.0;
+
   return result;
 }
 
