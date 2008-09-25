@@ -680,7 +680,7 @@ static PyMethodDef cnter_methods[] = {
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
 	 cnter_arg_max_doc},
 	{"max", (PyCFunction)cnter_max, METH_NOARGS, cnter_max_doc},
-	{"set_default", (PyCFunction)cnter_set_default, METH_NOARGS, cnter_set_default_doc},
+	{"set_default", (PyCFunction)cnter_set_default, METH_O, cnter_set_default_doc},
 	{NULL}
 };
 // 
