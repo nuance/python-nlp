@@ -4,6 +4,7 @@ import sys
 import random
 from itertools import izip, islice
 from time import time
+from math import log, exp
 
 from countermap import CounterMap
 from nlp import counter as Counter
@@ -53,21 +54,56 @@ class HiddenMarkovModel:
 		self.emission.normalize()
 		self.labels = self.emission.keys()
 
+		uniform = 1.0 / float(len(self.labels))
+		epsilon = 0.00001
+
+		# Small smoothing factor for label transitions
+		for label in self.labels:
+			if label not in self.transition:
+				for next_label in self.labels:
+					self.transition[label][next_label] = uniform
+			elif label == STOP_LABEL:
+				continue
+			else:
+				for next_label in self.labels:
+					if next_label == START_LABEL:
+						continue
+					if next_label not in self.transition[label]:
+						self.transition[label][next_label] = epsilon
+				self.transition[label].normalize()
+
+		# Convert to log score counters
+		for counter_map in (self.label_emissions, self.transition, self.emission):
+			for key, sub_counter in counter_map.iteritems():
+				for sub_key, score in sub_counter.iteritems():
+					counter_map[key][sub_key] = log(score)
+				sub_counter.set_default(float("-inf"))
+
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():
 			for sublabel, score in counter.iteritems():
 				self.reverse_transition[sublabel][label] = score
 
+	def fallback_probs(self, emission):
+		fallback = Counter()
+		uniform = log(1.0 / len(self.labels))
+		for label in self.labels: fallback[label] = uniform
+
+		return fallback
+
 	def score(self, labeled_sequence):
-		score = 1.0
+		score = self.transition[START_LABEL][labeled_sequence[0][0]]
 		last_label = START_LABEL
 
 		for label, emission in labeled_sequence:
-			score *= self.emission[label][emission]
-			score *= self.transition[last_label][label]
+			if emission in self.emission[label]:
+				score += self.emission[label][emission]
+			else:
+				score += self.fallback_probs(emission)[label]
+			score += self.transition[last_label][label]
 			last_label = label
 
-		score *= self.transition[last_label][STOP_LABEL]
+		score += self.transition[last_label][STOP_LABEL]
 
 		return score
 
@@ -82,21 +118,42 @@ class HiddenMarkovModel:
 		scores = [Counter() for state in emission_sequence]
 
 		# Start is hardcoded
-		scores[0][START_LABEL] = 1.0
+		for label in self.labels: scores[0][label] = float("-inf")
+		scores[0][START_LABEL] = 0.0
+		end = len(emission_sequence)-2
+
+		last_min = 0.0
 
 		for pos, emission in enumerate(emission_sequence[1:]):
+#			print "*** POS %d: EMISSION %s ***" % (pos, emission)
+#			print "  Scores coming in to %d: %s" % (pos, scores[pos])
+
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
-			emission_probs = self.label_emissions[emission]
-			scores[pos].normalize()
+			if emission in self.label_emissions:
+				emission_probs = self.label_emissions[emission]
+#				print "Observed emission %s: %s" % (emission, emission_probs)
+			else:
+				emission_probs = self.fallback_probs(emission)
+#				print "Fallback on emission %s: %s" % (emission, emission_probs)
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
 			for label in self.labels:
-				transition_scores = scores[pos] * self.reverse_transition[label]
+#				print "  Label %s" % label
+				if pos != end and label == STOP_LABEL or label == START_LABEL:
+					scores[pos+1][label] = float("-inf")
+					continue
+				transition_scores = scores[pos] + self.reverse_transition[label]
 				arg_max = transition_scores.arg_max()
 				backtrack[pos][label] = arg_max
-				transition_scores *= emission_probs[label]
+				transition_scores += emission_probs[label]
+#				print "    Reverse transition probs: %s" % self.reverse_transition[label]
+#				print "    Emission probs: %s" % emission_probs[label]
 				scores[pos+1][label] = transition_scores[arg_max]
+
+#			print "  Backtrack to %d: %s" % (pos, backtrack[pos])
+
+#		print "Scores @ %d: %s" % (pos+1, scores[pos+1])
 
 		# Now decode
 		states = list()
@@ -112,7 +169,7 @@ class HiddenMarkovModel:
 		sample = random.random()
 
 		for next, prob in self.transition[label].iteritems():
-			sample -= prob
+			sample -= exp(prob)
 			if sample <= 0.0: return next
 
 		assert False, "Should have returned a next state"
@@ -122,7 +179,7 @@ class HiddenMarkovModel:
 		sample = random.random()
 
 		for next, prob in self.emission[label].iteritems():
-			sample -= prob
+			sample -= exp(prob)
 			if sample <= 0.0: return next
 
 		assert False, "Should have returned an emission"
@@ -311,6 +368,9 @@ def pos_problem(args):
 	if correct_labels != guessed_labels:
 		guessed_score = pos_tagger.score(zip(guessed_labels, emissions))
 		correct_score = pos_tagger.score(zip(correct_labels, emissions))
+
+		print "Guessed: %f, Correct: %f" % (guessed_score, correct_score)
+
 		assert guessed_score >= correct_score, "Decoder sub-optimality (%f for guess, %f for correct)" % (guessed_score, correct_score)
 
 	stop = time()
