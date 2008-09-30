@@ -83,6 +83,7 @@ class HiddenMarkovModel:
 		for label, counter in self.transition.iteritems():
 			for sublabel, score in counter.iteritems():
 				self.reverse_transition[sublabel][label] = score
+				self.reverse_transition[sublabel].set_default(float("-inf"))
 
 	def fallback_probs(self, emission):
 		fallback = Counter()
@@ -91,8 +92,8 @@ class HiddenMarkovModel:
 
 		return fallback
 
-	def score(self, labeled_sequence):
-		score = self.transition[START_LABEL][labeled_sequence[0][0]]
+	def score(self, labeled_sequence, debug=False):
+		score = 0.0
 		last_label = START_LABEL
 
 		for label, emission in labeled_sequence:
