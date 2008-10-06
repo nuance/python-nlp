@@ -68,7 +68,10 @@ def test():
 
 	print "bob = half_spam * 2 done"
 	
+	print bob, "*",
+	print half_spam, "=",
 	jim = bob * half_spam
+	print jim
 	
 	assert(jim['spam'] == 0.5)
 	assert(jim['ham'] == 0.5)
@@ -148,6 +151,39 @@ def test():
 		jim = base - sub
 
 	print jim
+
+	# Testing default values
+
+	for operation in ("__add__", "__mul__"):
+		print "Testing %s" % operation
+
+		foo = counter()
+		foo.set_default(float("-inf"))
+		foo['a'] = 1.0
+
+		bar = counter()
+		bar.set_default(float("-inf"))
+		bar['b'] = 2.0
+
+		foofunc = getattr(foo, operation)
+		barfunc = getattr(bar, operation)
+
+		# Transitivity
+		assert foofunc(bar) == barfunc(foo), "%s != %s" % (foofunc(bar), barfunc(foo))
+		print "Transitivity passed"
+
+		# Test that the values are correct
+		bob = foofunc(bar)
+		print bob
+		assert bob['a'] == float("-inf")
+		assert bob['b'] == float("-inf")
+		assert bob['missing'] == float("-inf")
+		print "Values passed"
+
+		# Verify that the originals are unchanged
+		assert foo['a'] == 1.0 and foo['missing'] == float("-inf")
+		assert bar['b'] == 2.0 and bar['missing'] == float("-inf")
+		print "Changes passed"
 
 if __name__ == "__main__":
 	test()
