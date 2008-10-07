@@ -96,19 +96,25 @@ class HiddenMarkovModel:
 		score = 0.0
 		last_label = START_LABEL
 
-		for label, emission in labeled_sequence:
+		if debug: print "*** SCORE (%s) ***" % labeled_sequence
+
+		for pos, (label, emission) in enumerate(labeled_sequence):
 			if emission in self.emission[label]:
 				score += self.emission[label][emission]
 			else:
 				score += self.fallback_probs(emission)[label]
 			score += self.transition[last_label][label]
 			last_label = label
+			if debug: print "  SCP %d score after label %s emits %s: %s" % (pos, label, emission, score)
 
 		score += self.transition[last_label][STOP_LABEL]
 
+		if debug: print "*** SCORE => %f ***" % score
+		
 		return score
 
-	def label(self, emission_sequence):
+	def label(self, emission_sequence, debug=False, start_at=0):
+		print emission_sequence
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
 
@@ -126,41 +132,50 @@ class HiddenMarkovModel:
 
 		last_min = 0.0
 
+		if start_at > 0:
+			debug = False
+
 		for pos, emission in enumerate(emission_sequence[1:]):
-#			print "*** POS %d: EMISSION %s ***" % (pos, emission)
-#			print "  Scores coming in to %d: %s" % (pos, scores[pos])
+			if debug: print "*** POS %d: EMISSION %s ***" % (pos, emission)
+			if debug: print "  Scores coming in to %d: %s" % (pos, scores[pos])
 
 			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
 			if emission in self.label_emissions:
 				emission_probs = self.label_emissions[emission]
-#				print "Observed emission %s: %s" % (emission, emission_probs)
+				if debug: print "  Observed emission %s" % (emission)
 			else:
 				emission_probs = self.fallback_probs(emission)
-#				print "Fallback on emission %s: %s" % (emission, emission_probs)
+				if debug: print "  Fallback on emission %s" % (emission)
 
 			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
 			# backtrack = argmax(^^)
 			for label in self.labels:
-#				print "  Label %s" % label
+				if emission_probs[label] == float("-inf"): continue
+				if debug: print "  Label %s" % label
 				if pos != end and label == STOP_LABEL or label == START_LABEL:
 					scores[pos+1][label] = float("-inf")
 					continue
 				transition_scores = scores[pos] + self.reverse_transition[label]
+				print transition_scores
 				arg_max = transition_scores.arg_max()
 				backtrack[pos][label] = arg_max
 				transition_scores += emission_probs[label]
-#				print "    Reverse transition probs: %s" % self.reverse_transition[label]
-#				print "    Emission probs: %s" % emission_probs[label]
+#				if debug: print "    Reverse transition scores: %s" % self.reverse_transition[label]
+				if debug: print "    Emission probs: %s" % exp(emission_probs[label])
 				scores[pos+1][label] = transition_scores[arg_max]
 
-#			print "  Backtrack to %d: %s" % (pos, backtrack[pos])
+			if debug: print "  Backtrack to %d: %s" % (pos, backtrack[pos])
+			if start_at > 0 and start_at == pos: debug = True
 
-#		print "Scores @ %d: %s" % (pos+1, scores[pos+1])
+
+		if debug: print "Scores @ %d: %s" % (pos+1, scores[pos+1])
 
 		# Now decode
 		states = list()
 		current = STOP_LABEL
 		for pos in xrange(len(backtrack)-2, 0, -1):
+			print "trying backtrack @ %d on label %s" % (pos, current)
+			print "backtrack[pos] = %s" % backtrack[pos]
 			current = backtrack[pos][current]
 			states.append(current)
 
@@ -345,8 +360,10 @@ def pos_problem(args):
 	print "Training: %d" % len(training_sentences)
 	print "Validation: %d" % len(validation_sentences)
 	print "Testing: %d" % len(testing_sentences)
+
+	print testing_sentences
 	
-	training_stream, validation_stream, testing_stream = map(merge_stream, (training_sentences, validation_sentences, testing_sentences))
+	training_stream, validation_stream = map(merge_stream, (training_sentences, validation_sentences))
 	stop = time()
 	print "Streaming: %f" % (stop-start)
 
@@ -359,21 +376,22 @@ def pos_problem(args):
 
 	print "Testing"
 	start = time()
-	correct_labels = [tag for tag, _ in testing_stream[1:-2]]
-	emissions = [word for _, word in testing_stream[1:-2]]
-	guessed_labels = pos_tagger.label([word for _, word in testing_stream[1:-2]])
-	num_correct = 0
-	for correct, guessed in izip(correct_labels, guessed_labels):
-		if correct == START_LABEL or correct == STOP_LABEL: continue
-		if correct == guessed: num_correct += 1
 
-	if correct_labels != guessed_labels:
-		guessed_score = pos_tagger.score(zip(guessed_labels, emissions))
-		correct_score = pos_tagger.score(zip(correct_labels, emissions))
+	for correct_labels, emissions in testing_sentences:
+		guessed_labels = pos_tagger.label(emissions, debug=True)
+		num_correct = 0
+		for correct, guessed in izip(correct_labels, guessed_labels):
+			if correct == START_LABEL or correct == STOP_LABEL: continue
+			if correct == guessed: num_correct += 1
 
-		print "Guessed: %f, Correct: %f" % (guessed_score, correct_score)
+		if correct_labels != guessed_labels:
+			guessed_score = pos_tagger.score(zip(guessed_labels, emissions))
+			correct_score = pos_tagger.score(zip(correct_labels, emissions))
 
-		assert guessed_score >= correct_score, "Decoder sub-optimality (%f for guess, %f for correct)" % (guessed_score, correct_score)
+			print "Guessed: %f, Correct: %f" % (guessed_score, correct_score)
+
+			debug_label = lambda: pos_tagger.label([word for _, word in testing_stream[1:-2]], debug=True, start_at=20)
+			assert guessed_score >= correct_score, "Decoder sub-optimality (%f for guess, %f for correct), %s" % (guessed_score, correct_score, debug_label())
 
 	stop = time()
 	print "Testing: %f" % (stop-start)
