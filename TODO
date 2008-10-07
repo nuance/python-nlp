@@ -2,6 +2,7 @@ Near-horizon goals (loosely pulled from DESIGN, but more pragmatic, not in any p
 - Refactor nlp C module (pull counter into a separate file)
 - Counter in-place scalar ops
 + HMM
+- Log-score HMM (current implementation underflows too much)
 - Higher-order hmm
 + Penn treebank reader
 - Analysis tool for classifiers / features (for NB & MaxEnt)
