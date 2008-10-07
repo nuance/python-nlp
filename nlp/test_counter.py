@@ -1,3 +1,4 @@
+from copy import copy
 from nlp import counter
 from math import log
 
@@ -153,16 +154,15 @@ def test():
 	print jim
 
 	# Testing default values
-
 	for operation in ("__add__", "__mul__"):
 		print "Testing %s" % operation
 
 		foo = counter()
-		foo.set_default(float("-inf"))
+		foo.default = float("-inf")
 		foo['a'] = 1.0
 
 		bar = counter()
-		bar.set_default(float("-inf"))
+		bar.default = float("-inf")
 		bar['b'] = 2.0
 
 		foofunc = getattr(foo, operation)
@@ -177,13 +177,47 @@ def test():
 		print bob
 		assert bob['a'] == float("-inf")
 		assert bob['b'] == float("-inf")
-		assert bob['missing'] == float("-inf")
+		if operation == "__add__": val = float("-inf")
+ 		elif operation == "__mul__": val = float("inf")
+		assert bob['missing'] == val
 		print "Values passed"
 
 		# Verify that the originals are unchanged
 		assert foo['a'] == 1.0 and foo['missing'] == float("-inf")
 		assert bar['b'] == 2.0 and bar['missing'] == float("-inf")
 		print "Changes passed"
+
+	# Testing default values for in-place ops
+	for operation in ("__iadd__", "__imul__"):
+		print "Testing %s" % operation
+
+		foo = counter()
+		foo.default = float("-inf")
+		foo['a'] = 1.0
+
+		bar = counter()
+		bar.default = float("-inf")
+		bar['b'] = 2.0
+		
+		foofunc = getattr(foo, operation)
+		barfunc = getattr(bar, operation)
+		orig = copy(foo)
+		orig.default = foo.default
+
+		foofunc(bar)
+		barfunc(orig)
+
+		# Transitivity
+		assert foo == bar, "%s != %s" % (foo, bar)
+		print "Transitivity passed"
+
+		# Test that the values are correct
+		assert bar['a'] == float("-inf")
+		assert bar['b'] == float("-inf")
+		if operation == "__iadd__": val = float("-inf")
+ 		elif operation == "__imul__": val = float("inf")
+		assert bar['missing'] == val
+		print "Values passed"
 
 if __name__ == "__main__":
 	test()
