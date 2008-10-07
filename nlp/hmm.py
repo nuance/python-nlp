@@ -77,13 +77,13 @@ class HiddenMarkovModel:
 			for key, sub_counter in counter_map.iteritems():
 				for sub_key, score in sub_counter.iteritems():
 					counter_map[key][sub_key] = log(score)
-				sub_counter.set_default(float("-inf"))
+				sub_counter.default = float("-inf")
 
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():
 			for sublabel, score in counter.iteritems():
 				self.reverse_transition[sublabel][label] = score
-				self.reverse_transition[sublabel].set_default(float("-inf"))
+				self.reverse_transition[sublabel].default = float("-inf")
 
 	def fallback_probs(self, emission):
 		fallback = Counter()
@@ -117,6 +117,7 @@ class HiddenMarkovModel:
 
 		# Scores are indexed by pos - 1 in the padded sequence(so we can initialize it with uniform probability, or the stationary if we have it)
 		scores = [Counter() for state in emission_sequence]
+		for counter in scores: counter.default = float("-inf")
 
 		# Start is hardcoded
 		for label in self.labels: scores[0][label] = float("-inf")
