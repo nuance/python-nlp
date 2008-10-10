@@ -54,14 +54,13 @@ class HiddenMarkovModel:
 		self.emission.normalize()
 		self.labels = self.emission.keys()
 
-		uniform = 1.0 / float(len(self.labels))
+		uniform = log(1.0 / float(len(self.labels)))
 		epsilon = 0.00001
 
 		# Small smoothing factor for label transitions
 		for label in self.labels:
 			if label not in self.transition:
-				for next_label in self.labels:
-					self.transition[label][next_label] = uniform
+				self.transition[label].default = uniform
 			elif label == STOP_LABEL:
 				continue
 			else:
@@ -77,7 +76,8 @@ class HiddenMarkovModel:
 			for key, sub_counter in counter_map.iteritems():
 				for sub_key, score in sub_counter.iteritems():
 					counter_map[key][sub_key] = log(score)
-				sub_counter.default = float("-inf")
+				if sub_counter.default == 0.0:
+					sub_counter.default = float("-inf")
 
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():
