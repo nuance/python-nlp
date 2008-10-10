@@ -54,30 +54,12 @@ class HiddenMarkovModel:
 		self.emission.normalize()
 		self.labels = self.emission.keys()
 
-		uniform = log(1.0 / float(len(self.labels)))
-		epsilon = 0.00001
-
-		# Small smoothing factor for label transitions
-		for label in self.labels:
-			if label not in self.transition:
-				self.transition[label].default = uniform
-			elif label == STOP_LABEL:
-				continue
-			else:
-				for next_label in self.labels:
-					if next_label == START_LABEL:
-						continue
-					if next_label not in self.transition[label]:
-						self.transition[label][next_label] = epsilon
-				self.transition[label].normalize()
-
 		# Convert to log score counters
 		for counter_map in (self.label_emissions, self.transition, self.emission):
-			for key, sub_counter in counter_map.iteritems():
+			for sub_counter in counter_map.itervalues():
+				sub_counter.default = float("-inf")
 				for sub_key, score in sub_counter.iteritems():
-					counter_map[key][sub_key] = log(score)
-				if sub_counter.default == 0.0:
-					sub_counter.default = float("-inf")
+					sub_counter[sub_key] = log(score)
 
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():
@@ -114,73 +96,50 @@ class HiddenMarkovModel:
 		return score
 
 	def label(self, emission_sequence, debug=False, start_at=None):
-		if debug: print emission_sequence
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
 
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		backtrack = [dict() for state in emission_sequence]
+		scores = list()
 
-		# Scores are indexed by pos - 1 in the padded sequence(so we can initialize it with uniform probability, or the stationary if we have it)
-		scores = [Counter() for state in emission_sequence]
-		for counter in scores: counter.default = float("-inf")
+		for pos, (emission, backpointers) in enumerate(izip(emission_sequence, backtrack)):
+			if debug: print "** ENTERING POS %d      :: %s" % (pos, emission)
+			curr_scores = Counter()
+			curr_scores.default = float("-inf")
 
-		# Start is hardcoded
-		scores[0][START_LABEL] = 0.0
-		end = len(emission_sequence)-2
-
-		last_min = 0.0
-
-		if start_at:
-			debug = False
-
-		for pos, emission in enumerate(emission_sequence[1:]):
-			if debug: print "*** POS %d: EMISSION %s ***" % (pos, emission)
-			if debug: print "  Scores coming in to %d: %s" % (pos, scores[pos])
-
-			# At each position calculate the transition scores and the emission probabilities (independent given the state!)
-			if emission in self.label_emissions:
-				emission_probs = self.label_emissions[emission]
-				if debug: print "  Observed emission %s" % (emission)
+			if pos == 0:
+				curr_scores[START_LABEL] = 0.0
 			else:
-				emission_probs = self.fallback_probs(emission)
-				if debug: print "  Fallback on emission %s" % (emission)
+				# Transition probs (prob of arriving in this state)
+				prev_scores = scores[pos-1]
+				for label in self.labels:
+					transition_scores = prev_scores + self.reverse_transition[label]
+					print "  Label %s :: %s" % (label, transition_scores.items())
+					backpointers[label] = transition_scores.arg_max()
+					curr_scores[label] = transition_scores[backpointers[label]]
+					print "          :: %f => %s" % (curr_scores[label], backpointers[label])
 
-			# scores[pos+1] = max(scores[pos][label] * transitions[label][nextlabel] for label, nextlabel)
-			# backtrack = argmax(^^)
-			for label in self.labels:
-				if emission_probs[label] == float("-inf"): continue
-				if debug: print "  Label %s" % label
-				if pos != end and label == STOP_LABEL or label == START_LABEL:
-					scores[pos+1][label] = float("-inf")
-					continue
-				transition_scores = scores[pos] + self.reverse_transition[label]
-				if debug: print transition_scores
-				arg_max = transition_scores.arg_max()
-				backtrack[pos][label] = arg_max
-				transition_scores += emission_probs[label]
-#				if debug: print "    Reverse transition scores: %s" % self.reverse_transition[label]
-				if debug: print "    Emission probs: %s" % exp(emission_probs[label])
-				scores[pos+1][label] = transition_scores[arg_max]
+				# Emission probs (prob. of emitting `emission`)
+				if emission in self.label_emissions: curr_scores += self.label_emissions[emission]
+				else: curr_scores += self.fallback_probs(emission)
 
-			if debug: print "  Backtrack to %d: %s" % (pos, backtrack[pos])
-			if start_at and start_at == pos:
-				print "Start at %f" % pos
-				debug = True
-
-
-		if debug: print "Scores @ %d: %s" % (pos+1, scores[pos+1])
+			if debug: print "=> EXITING WITH SCORES :: %s" % curr_scores.items()
+			scores.append(curr_scores)
 
 		# Now decode
 		states = list()
 		current = STOP_LABEL
-		for pos in xrange(len(backtrack)-2, 0, -1):
-			if debug: print "trying backtrack @ %d on label %s" % (pos, current)
-			if debug: print "backtrack[pos] = %s" % backtrack[pos]
+		for pos in xrange(len(backtrack)-1, 0, -1):
+			print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
 			current = backtrack[pos][current]
 			states.append(current)
 
+		print states
+
+		states.pop()
 		states.reverse()
+
 		return states
 
 	def __sample_transition(self, label):

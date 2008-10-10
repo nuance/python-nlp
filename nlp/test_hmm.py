@@ -5,6 +5,13 @@ from hmm import HiddenMarkovModel, START_LABEL, STOP_LABEL
 def test_problem():
 	defaults = {START_LABEL : float("-inf"), STOP_LABEL : float("-inf")}
 
+	def set_defaults(model):
+		for state in model.labels:
+			model.transition[state].default = float("-inf")
+			model.reverse_transition[state].default = float("-inf")
+			model.emission[state].default = float("-inf")
+			model.label_emissions[state].default = float("-inf")
+
 	def uniform_transitions(model):
 		for start in ('A', 'B'):
 			model.transition[start].update(defaults)
@@ -50,10 +57,17 @@ def test_problem():
 					model.label_emissions[emission][label] = log(1.0 / (3.0 * float(len(model.labels)-1)))
 
 	def test_label(model, emissions, score, labels=None, debug=False):
+		if debug: print
 		if not labels: labels = emissions
+
+		if debug: print "Emission-Labels: %s" % zip(emissions, labels)
 		guessed_labels = model.label(emissions, debug=debug)
+		if debug: print "Guessed labels: %s" % guessed_labels
 		assert sum(label == emission for label, emission in zip(guessed_labels, labels)) == len(emissions)
+		
+		if debug: print "Score: %f" % score
 		guessed_score = model.score(zip(guessed_labels, emissions), debug=debug)
+		if debug: print "Guessed score: %f" % guessed_score
 		assert abs(guessed_score - score) < 0.0001, score
 
 	print "Testing emission == state w/ uniform transitions chain: ",
@@ -61,6 +75,7 @@ def test_problem():
 	model = HiddenMarkovModel()
 	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
+	set_defaults(model)
 	uniform_transitions(model)
 	identity_emissions(model)
 
@@ -76,6 +91,7 @@ def test_problem():
 	model = HiddenMarkovModel()
 	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
+	set_defaults(model)
 	self_biased_transitions(model)
 	identity_emissions(model)
 
@@ -92,6 +108,7 @@ def test_problem():
 	model = HiddenMarkovModel()
 	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
+	set_defaults(model)
 	uniform_transitions(model)
 	self_biased_emissions(model)
 
@@ -108,6 +125,7 @@ def test_problem():
 	model = HiddenMarkovModel()
 	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
+	set_defaults(model)
 	self_biased_transitions(model)
 	self_biased_emissions(model)
 
@@ -125,6 +143,7 @@ def test_problem():
 	model = HiddenMarkovModel()
 	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
+	set_defaults(model)
 	identity_emissions(model)
 	self_biased_transitions(model)
 
