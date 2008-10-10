@@ -113,8 +113,8 @@ class HiddenMarkovModel:
 		
 		return score
 
-	def label(self, emission_sequence, debug=False, start_at=0):
-		print emission_sequence
+	def label(self, emission_sequence, debug=False, start_at=None):
+		if debug: print emission_sequence
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
 
@@ -126,13 +126,12 @@ class HiddenMarkovModel:
 		for counter in scores: counter.default = float("-inf")
 
 		# Start is hardcoded
-		for label in self.labels: scores[0][label] = float("-inf")
 		scores[0][START_LABEL] = 0.0
 		end = len(emission_sequence)-2
 
 		last_min = 0.0
 
-		if start_at > 0:
+		if start_at:
 			debug = False
 
 		for pos, emission in enumerate(emission_sequence[1:]):
@@ -156,7 +155,7 @@ class HiddenMarkovModel:
 					scores[pos+1][label] = float("-inf")
 					continue
 				transition_scores = scores[pos] + self.reverse_transition[label]
-				print transition_scores
+				if debug: print transition_scores
 				arg_max = transition_scores.arg_max()
 				backtrack[pos][label] = arg_max
 				transition_scores += emission_probs[label]
@@ -165,7 +164,9 @@ class HiddenMarkovModel:
 				scores[pos+1][label] = transition_scores[arg_max]
 
 			if debug: print "  Backtrack to %d: %s" % (pos, backtrack[pos])
-			if start_at > 0 and start_at == pos: debug = True
+			if start_at and start_at == pos:
+				print "Start at %f" % pos
+				debug = True
 
 
 		if debug: print "Scores @ %d: %s" % (pos+1, scores[pos+1])
@@ -174,8 +175,8 @@ class HiddenMarkovModel:
 		states = list()
 		current = STOP_LABEL
 		for pos in xrange(len(backtrack)-2, 0, -1):
-			print "trying backtrack @ %d on label %s" % (pos, current)
-			print "backtrack[pos] = %s" % backtrack[pos]
+			if debug: print "trying backtrack @ %d on label %s" % (pos, current)
+			if debug: print "backtrack[pos] = %s" % backtrack[pos]
 			current = backtrack[pos][current]
 			states.append(current)
 
@@ -378,7 +379,7 @@ def pos_problem(args):
 	start = time()
 
 	for correct_labels, emissions in testing_sentences:
-		guessed_labels = pos_tagger.label(emissions, debug=True)
+		guessed_labels = pos_tagger.label(emissions, debug=False)
 		num_correct = 0
 		for correct, guessed in izip(correct_labels, guessed_labels):
 			if correct == START_LABEL or correct == STOP_LABEL: continue
@@ -390,7 +391,7 @@ def pos_problem(args):
 
 			print "Guessed: %f, Correct: %f" % (guessed_score, correct_score)
 
-			debug_label = lambda: pos_tagger.label([word for _, word in testing_stream[1:-2]], debug=True, start_at=20)
+			debug_label = lambda: pos_tagger.label(emissions, debug=True)#start_at=20)
 			assert guessed_score >= correct_score, "Decoder sub-optimality (%f for guess, %f for correct), %s" % (guessed_score, correct_score, debug_label())
 
 	stop = time()
