@@ -116,7 +116,7 @@ def test_problem():
 	scored_tests = zip(tests, scores)
 
 	for test, score in scored_tests:
-		test_label(model, test, score, debug=True)
+		test_label(model, test, score)
 
 	print "ok"
 

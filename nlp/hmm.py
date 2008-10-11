@@ -95,7 +95,7 @@ class HiddenMarkovModel:
 		
 		return score
 
-	def label(self, emission_sequence, debug=False, start_at=None):
+	def label(self, emission_sequence, debug=False):
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
 
@@ -115,10 +115,10 @@ class HiddenMarkovModel:
 				prev_scores = scores[pos-1]
 				for label in self.labels:
 					transition_scores = prev_scores + self.reverse_transition[label]
-					print "  Label %s :: %s" % (label, transition_scores.items())
+					if debug: print "  Label %s :: %s" % (label, transition_scores.items())
 					backpointers[label] = transition_scores.arg_max()
 					curr_scores[label] = transition_scores[backpointers[label]]
-					print "          :: %f => %s" % (curr_scores[label], backpointers[label])
+					if debug: print "          :: %f => %s" % (curr_scores[label], backpointers[label])
 
 				# Emission probs (prob. of emitting `emission`)
 				if emission in self.label_emissions: curr_scores += self.label_emissions[emission]
@@ -131,11 +131,9 @@ class HiddenMarkovModel:
 		states = list()
 		current = STOP_LABEL
 		for pos in xrange(len(backtrack)-1, 0, -1):
-			print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
+			if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
 			current = backtrack[pos][current]
 			states.append(current)
-
-		print states
 
 		states.pop()
 		states.reverse()
