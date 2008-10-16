@@ -42,8 +42,6 @@ def pos_problem(args):
 	print "Validation: %d" % len(validation_sentences)
 	print "Testing: %d" % len(testing_sentences)
 
-	print testing_sentences
-	
 	training_stream, validation_stream = map(merge_stream, (training_sentences, validation_sentences))
 	stop = time()
 	print "Streaming: %f" % (stop-start)
@@ -71,7 +69,7 @@ def pos_problem(args):
 
 			print "Guessed: %f, Correct: %f" % (guessed_score, correct_score)
 
-			debug_label = lambda: pos_tagger.label(emissions, debug=True)#start_at=20)
+			debug_label = lambda: pos_tagger.label(emissions, debug=True)
 			assert guessed_score >= correct_score, "Decoder sub-optimality (%f for guess, %f for correct), %s" % (guessed_score, correct_score, debug_label())
 
 	stop = time()

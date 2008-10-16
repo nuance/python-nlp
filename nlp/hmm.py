@@ -94,7 +94,7 @@ class HiddenMarkovModel:
 		
 		return score
 
-	def label(self, emission_sequence, debug=False):
+	def label(self, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
 
@@ -114,22 +114,39 @@ class HiddenMarkovModel:
 				prev_scores = scores[pos-1]
 				for label in self.labels:
 					transition_scores = prev_scores + self.reverse_transition[label]
-					if debug: print "  Label %s :: %s" % (label, transition_scores.items())
-					backpointers[label] = transition_scores.arg_max()
-					curr_scores[label] = transition_scores[backpointers[label]]
-					if debug: print "          :: %f => %s" % (curr_scores[label], backpointers[label])
+#					if debug: print "  Label %s :: %s" % (label, [i for i in transition_scores.iteritems() if i[1] != float("-inf")])
+					last = transition_scores.arg_max()
+					curr_score = transition_scores[last]
+					if curr_score > float("-inf"):
+						backpointers[label] = last
+						curr_scores[label] = curr_score
+
+#						if debug: print "          :: %f => %s" % (curr_scores[label], backpointers[label])
+
+				if debug: 
+					print " ++ TRANSITIONS        ::",
+					if self.label_emissions[emission]: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
+					else: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
 
 				# Emission probs (prob. of emitting `emission`)
-				if emission in self.label_emissions: curr_scores += self.label_emissions[emission]
+				if self.label_emissions.get(emission, None): curr_scores += self.label_emissions[emission]
 				else: curr_scores += self.fallback_probs(emission)
+				
+				if debug:
+					if self.label_emissions[emission]: print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
+					else: print " ++ EMISSIONS FALLBACK :: %s" % [(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
 
-			if debug: print "=> EXITING WITH SCORES :: %s" % curr_scores.items()
+			if debug: print "=> EXITING WITH SCORES :: %s" % [item for item in curr_scores.iteritems() if item[1] != float("-inf")]
 			scores.append(curr_scores)
 
 		# Now decode
 		states = list()
 		current = STOP_LABEL
 		for pos in xrange(len(backtrack)-1, 0, -1):
+			if current not in backtrack[pos]:
+				current = STOP_LABEL
+				states.append(current)
+				continue
 			if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
 			current = backtrack[pos][current]
 			states.append(current)
@@ -137,6 +154,8 @@ class HiddenMarkovModel:
 		states.pop()
 		states.reverse()
 
+		if return_score:
+			return states, scores[-1][STOP_LABEL]
 		return states
 
 	def __sample_transition(self, label):

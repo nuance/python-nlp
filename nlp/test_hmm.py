@@ -61,7 +61,7 @@ def test_problem():
 		if not labels: labels = emissions
 
 		if debug: print "Emission-Labels: %s" % zip(emissions, labels)
-		guessed_labels = model.label(emissions, debug=debug)
+		guessed_labels, labelling_score = model.label(emissions, debug=debug, return_score=True)
 		if debug: print "Guessed labels: %s" % guessed_labels
 		assert sum(label == emission for label, emission in zip(guessed_labels, labels)) == len(emissions)
 		
@@ -69,6 +69,7 @@ def test_problem():
 		guessed_score = model.score(zip(guessed_labels, emissions), debug=debug)
 		if debug: print "Guessed score: %f" % guessed_score
 		assert abs(guessed_score - score) < 0.0001, score
+		assert abs(score - labelling_score) < 0.0001, score
 
 	print "Testing emission == state w/ uniform transitions chain: ",
 
@@ -116,7 +117,7 @@ def test_problem():
 	scored_tests = zip(tests, scores)
 
 	for test, score in scored_tests:
-		test_label(model, test, score)
+		test_label(model, test, score, debug=True)
 
 	print "ok"
 
