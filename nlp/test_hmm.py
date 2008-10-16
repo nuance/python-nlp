@@ -113,11 +113,11 @@ def test_problem():
 	uniform_transitions(model)
 	self_biased_emissions(model)
 
-	scores = [log(0.5) + log(1.0 / 3.0) * 4.0 + 4.0 * log(2.0 / 3.0) for i in xrange(4)]
+	scores = [log(0.5) + log(1.0 / 3.0) * 4.0 + 6.0 * log(2.0 / 3.0) for i in xrange(4)]
 	scored_tests = zip(tests, scores)
 
 	for test, score in scored_tests:
-		test_label(model, test, score, debug=True)
+		test_label(model, test, score)
 
 	print "ok"
 
@@ -131,7 +131,7 @@ def test_problem():
 	self_biased_emissions(model)
 
 	scores = [log(0.5) * 4 + log(0.25), log(0.5) * 4 + log(0.25), log(0.5)*3 + log(0.25)*2, log(0.5)*2 + log(0.25)*3]
-	scores = [4.0 * log(2.0 / 3.0) + score for score in scores]
+	scores = [6.0 * log(2.0 / 3.0) + score for score in scores]
 	scored_tests = zip(tests, scores)
 
 	for test, score in scored_tests:

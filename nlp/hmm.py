@@ -79,6 +79,9 @@ class HiddenMarkovModel:
 
 		if debug: print "*** SCORE (%s) ***" % labeled_sequence
 
+		if START_LABEL in self.emission[START_LABEL]: score += self.emission[START_LABEL][START_LABEL]
+		else: score += self.fallback_probs(START_LABEL)[START_LABEL]
+
 		for pos, (label, emission) in enumerate(labeled_sequence):
 			if emission in self.emission[label]:
 				score += self.emission[label][emission]
@@ -89,6 +92,8 @@ class HiddenMarkovModel:
 			if debug: print "  SCP %d score after label %s emits %s: %s" % (pos, label, emission, score)
 
 		score += self.transition[last_label][STOP_LABEL]
+		if STOP_LABEL in self.emission[STOP_LABEL]: score += self.emission[STOP_LABEL][STOP_LABEL]
+		else: score += self.fallback_probs(STOP_LABEL)[STOP_LABEL]
 
 		if debug: print "*** SCORE => %f ***" % score
 		
@@ -128,13 +133,13 @@ class HiddenMarkovModel:
 					if self.label_emissions[emission]: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
 					else: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
 
-				# Emission probs (prob. of emitting `emission`)
-				if self.label_emissions.get(emission, None): curr_scores += self.label_emissions[emission]
-				else: curr_scores += self.fallback_probs(emission)
-				
-				if debug:
-					if self.label_emissions[emission]: print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
-					else: print " ++ EMISSIONS FALLBACK :: %s" % [(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
+			# Emission probs (prob. of emitting `emission`)
+			if self.label_emissions.get(emission, None): curr_scores += self.label_emissions[emission]
+			else: curr_scores += self.fallback_probs(emission)
+			
+			if debug:
+				if self.label_emissions[emission]: print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
+				else: print " ++ EMISSIONS FALLBACK :: %s" % [(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
 
 			if debug: print "=> EXITING WITH SCORES :: %s" % [item for item in curr_scores.iteritems() if item[1] != float("-inf")]
 			scores.append(curr_scores)
