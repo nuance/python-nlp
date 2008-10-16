@@ -100,6 +100,8 @@ class HiddenMarkovModel:
 		return score
 
 	def label(self, emission_sequence, debug=False, return_score=False):
+		if debug: print "LABEL :: %s" % emission_sequence
+
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
 
@@ -128,7 +130,8 @@ class HiddenMarkovModel:
 
 #						if debug: print "          :: %f => %s" % (curr_scores[label], backpointers[label])
 
-				if debug: 
+				if debug:
+					print " >> PREVIOUS           :: %s" % [(backpointers[label], prev_scores[backpointers[label]]) for label in curr_scores if label in self.label_emissions[emission]]
 					print " ++ TRANSITIONS        ::",
 					if self.label_emissions[emission]: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
 					else: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
@@ -139,7 +142,7 @@ class HiddenMarkovModel:
 			
 			if debug:
 				if self.label_emissions[emission]: print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
-				else: print " ++ EMISSIONS FALLBACK :: %s" % [(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
+				else: print " ++ EMISSIONS FALLBACK :: %f" % self.fallback_probs(emission).items()[0][1]#[(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
 
 			if debug: print "=> EXITING WITH SCORES :: %s" % [item for item in curr_scores.iteritems() if item[1] != float("-inf")]
 			scores.append(curr_scores)
