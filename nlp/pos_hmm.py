@@ -71,7 +71,7 @@ def pos_problem(args):
 
 			debug_label = lambda: pos_tagger.label(emissions, debug=True)
 			debug_score = lambda labels: pos_tagger.score(zip(labels, emissions), debug=True)
-			assert guessed_score >= correct_score or len(emissions) > 6, "Decoder sub-optimality (%f for guess, %f for correct), %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label())
+			assert guessed_score >= correct_score or len(emissions) > 6, "Decoder sub-optimality (%f for guess, %f for correct)\n%s vs. %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label(), correct_labels)
 
 	stop = time()
 	print "Testing: %f" % (stop-start)

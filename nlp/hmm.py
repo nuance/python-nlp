@@ -83,7 +83,7 @@ class HiddenMarkovModel:
 		else: score += self.fallback_probs(START_LABEL)[START_LABEL]
 
 		for pos, (label, emission) in enumerate(labeled_sequence):
-			if emission in self.emission[label]:
+			if emission in self.label_emissions:
 				score += self.emission[label][emission]
 			else:
 				score += self.fallback_probs(emission)[label]
@@ -101,6 +101,9 @@ class HiddenMarkovModel:
 
 	def label(self, emission_sequence, debug=False, return_score=False):
 		if debug: print "LABEL :: %s" % emission_sequence
+		
+		f = debug
+		debug=False
 
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
@@ -110,6 +113,7 @@ class HiddenMarkovModel:
 		scores = list()
 
 		for pos, (emission, backpointers) in enumerate(izip(emission_sequence, backtrack)):
+			debug = f and 3 <= pos <= 5
 			if debug: print "** ENTERING POS %d      :: %s" % (pos, emission)
 			curr_scores = Counter()
 			curr_scores.default = float("-inf")
@@ -121,20 +125,24 @@ class HiddenMarkovModel:
 				prev_scores = scores[pos-1]
 				for label in self.labels:
 					transition_scores = prev_scores + self.reverse_transition[label]
-#					if debug: print "  Label %s :: %s" % (label, [i for i in transition_scores.iteritems() if i[1] != float("-inf")])
+#					if debug:
+#						print "  Label %s :: %s" % (label, [i for i in transition_scores.iteritems() if i[1] != float("-inf")])
 					last = transition_scores.arg_max()
 					curr_score = transition_scores[last]
 					if curr_score > float("-inf"):
 						backpointers[label] = last
 						curr_scores[label] = curr_score
 
-#						if debug: print "          :: %f => %s" % (curr_scores[label], backpointers[label])
+#						if debug:
+#							print "          :: %f => %s" % (curr_scores[label], backpointers[label])
 
 				if debug:
 					print " >> PREVIOUS           :: %s" % [(backpointers[label], prev_scores[backpointers[label]]) for label in curr_scores if label in self.label_emissions[emission]]
 					print " ++ TRANSITIONS        ::",
-					if self.label_emissions[emission]: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
-					else: print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
+					if self.label_emissions[emission]:
+						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
+					else:
+						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
 
 			# Emission probs (prob. of emitting `emission`)
 			if self.label_emissions.get(emission, None): curr_scores += self.label_emissions[emission]
