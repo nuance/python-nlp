@@ -75,24 +75,30 @@ class HiddenMarkovModel:
 
 	def score(self, labeled_sequence, debug=False):
 		score = 0.0
+		last_score = 0.0
 		last_label = START_LABEL
 
 		if debug: print "*** SCORE (%s) ***" % labeled_sequence
 
-		if START_LABEL in self.emission[START_LABEL]: score += self.emission[START_LABEL][START_LABEL]
+		if START_LABEL in self.label_emissions[START_LABEL]: score += self.label_emissions[START_LABEL][START_LABEL]
 		else: score += self.fallback_probs(START_LABEL)[START_LABEL]
 
 		for pos, (label, emission) in enumerate(labeled_sequence):
 			if emission in self.label_emissions:
-				score += self.emission[label][emission]
+				score += self.label_emissions[emission][label]
 			else:
+				if debug: print "FALLBACK!"
 				score += self.fallback_probs(emission)[label]
+			if debug: print " ++ EMISSION: %f" % (score-last_score)
 			score += self.transition[last_label][label]
+			if debug: print " ++ TRANSITION: %f" % (self.transition[last_label][label])
 			last_label = label
-			if debug: print "  SCP %d score after label %s emits %s: %s" % (pos, label, emission, score)
+
+			if debug: print "  @ %d ::  score after label %s emits %s: %f (change %f)" % (pos, label, emission, score, score - last_score)
+			last_score = score
 
 		score += self.transition[last_label][STOP_LABEL]
-		if STOP_LABEL in self.emission[STOP_LABEL]: score += self.emission[STOP_LABEL][STOP_LABEL]
+		if STOP_LABEL in self.label_emissions[STOP_LABEL]: score += self.label_emissions[STOP_LABEL][STOP_LABEL]
 		else: score += self.fallback_probs(STOP_LABEL)[STOP_LABEL]
 
 		if debug: print "*** SCORE => %f ***" % score
@@ -113,7 +119,7 @@ class HiddenMarkovModel:
 		scores = list()
 
 		for pos, (emission, backpointers) in enumerate(izip(emission_sequence, backtrack)):
-			debug = f and 3 <= pos <= 5
+			debug = f and 7 <= pos <= 8
 			if debug: print "** ENTERING POS %d      :: %s" % (pos, emission)
 			curr_scores = Counter()
 			curr_scores.default = float("-inf")
