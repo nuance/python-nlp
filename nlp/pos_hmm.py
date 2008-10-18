@@ -56,12 +56,17 @@ def pos_problem(args):
 	print "Testing"
 	start = time()
 
+	num_correct = 0
+	num_incorrect = 0
+
 	for correct_labels, emissions in testing_sentences:
 		guessed_labels = pos_tagger.label(emissions, debug=False)
-		num_correct = 0
 		for correct, guessed in izip(correct_labels, guessed_labels):
 			if correct == START_LABEL or correct == STOP_LABEL: continue
-			if correct == guessed: num_correct += 1
+			if correct == guessed:
+				num_correct += 1
+			else:
+				num_incorrect += 1
 
 		if correct_labels != guessed_labels:
 			guessed_score = pos_tagger.score(zip(guessed_labels, emissions))
@@ -76,7 +81,7 @@ def pos_problem(args):
 	stop = time()
 	print "Testing: %f" % (stop-start)
 
-	print "%d correct (%.3f%% of %d)" % (num_correct, 100.0 * float(num_correct) / float(len(correct_labels)), len(correct_labels))
+	print "%d correct (%.3f%% of %d)" % (num_correct, 100.0 * float(num_correct) / float(num_correct + num_incorrect), num_correct + num_incorrect)
 
 if __name__ == "__main__":
 	pos_problem(sys.argv[1:])
