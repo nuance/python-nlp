@@ -101,19 +101,19 @@ cnter_normalize(cnterobject *dd)
 	double sum = 0.0;
 
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 		sum += PyFloat_AsDouble(value);
 	}
 	
 	if (sum == 0.0) {
-	  Py_ssize_t len = PyDict_Size((PyObject*)&(dd->dict));
+	  Py_ssize_t len = PyDict_Size((PyObject*)dd);
 	  PyObject *uniform = PyFloat_FromDouble(1.0 / (double)len);
 
 	  i = 0;
-	  while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	  while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 		int ok;
 
-		ok = PyDict_SetItem((PyObject*)&(dd->dict), key, uniform);
+		ok = PyDict_SetItem((PyObject*)dd, key, uniform);
 		if (ok < 0) {
 		  Py_DECREF(uniform);
 		  return NULL;
@@ -126,11 +126,11 @@ cnter_normalize(cnterobject *dd)
 	}
 
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 	  int ok;
 
 	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) / sum);
-	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  ok = PyDict_SetItem((PyObject*)dd, key, newValue);
 	  Py_DECREF(newValue);
 
 	  if (ok < 0) return NULL;
@@ -150,18 +150,18 @@ cnter_log_normalize(cnterobject *dd)
 	double log_sum = 0.0;
 
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 	  log_sum += sloppy_exp(PyFloat_AsDouble(value));
 	}
 
 	log_sum = log(log_sum);
 
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 	  int ok;
 
 	  PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) - log_sum);
-	  ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	  ok = PyDict_SetItem((PyObject*)dd, key, newValue);
 	  Py_DECREF(newValue);
 
 	  if (ok < 0) return NULL;
@@ -179,13 +179,18 @@ cnter_total_count(cnterobject *dd)
 	Py_ssize_t i;
 	PyObject *key, *value;
 	double sum = 0.0;
+	int seen = 0;
 	
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 		sum += PyFloat_AsDouble(value);
+		seen = 1;
 	}
 
-	return PyFloat_FromDouble(sum);
+	if (seen)
+		return PyFloat_FromDouble(sum);
+	else
+		return PyFloat_FromDouble(dd->default_value);
 }
 
 PyDoc_STRVAR(cnter_total_count_doc, "D.total_count() -> sum of the values in D");
@@ -200,7 +205,7 @@ cnter_arg_max(cnterobject *dd)
 	double running;
 
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 		running = PyFloat_AsDouble(value);
 		if (arg_max == NULL || max < running) {
 			Py_XDECREF(arg_max);
@@ -230,13 +235,16 @@ cnter_max(cnterobject *dd)
 	int found = 0;
 
 	i = 0;
-	while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 		running = PyFloat_AsDouble(value);
 		if (max < running || found == 0) {
 			max = running;
 			found = 1;
 		}
 	}
+	
+	if (found == 0)
+		return PyFloat_FromDouble(dd->default_value);
 
 	return PyFloat_FromDouble(max);
 }
@@ -255,11 +263,11 @@ cnter_iscale(cnterobject *dd, PyObject *other)
   else scale = PyFloat_AsDouble(other);
 
   i = 0;
-  while (PyDict_Next((PyObject*)&(dd->dict), &i, &key, &value)) {
+  while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
 	int ok;
 
 	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * scale);
-	ok = PyDict_SetItem((PyObject*)&(dd->dict), key, newValue);
+	ok = PyDict_SetItem((PyObject*)dd, key, newValue);
 	Py_DECREF(newValue);
 
 	if (ok < 0) {
@@ -343,7 +351,7 @@ cnter_scale(cnterobject *dd, PyObject *other)
   ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
 
   // Copy dd into ret_cnter
-  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)&(dd->dict)) < 0)
+  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)dd) < 0)
    	return NULL;
 
   i = 0;
@@ -905,7 +913,7 @@ static PyNumberMethods cnter_as_number = {
 	0,				/*nb_oct*/
 	0, 				/*nb_hex*/
 	(binaryfunc) cnter_iadd,		/*nb_inplace_add*/
-    (binaryfunc) cnter_isub,				/*nb_inplace_subtract*/
+    (binaryfunc) cnter_isub,		/*nb_inplace_subtract*/
 	(binaryfunc) cnter_imul,		/*nb_inplace_multiply*/
 	0,				/*nb_inplace_divide*/
 	0,				/*nb_inplace_remainder*/
