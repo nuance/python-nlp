@@ -251,6 +251,119 @@ cnter_max(cnterobject *dd)
 
 PyDoc_STRVAR(cnter_max_doc, "D.max() -> max of the items in D");
 
+#define SCALAR_OP(fn_name, OP) \
+static PyObject *\
+fn_name(cnterobject *cnter, PyObject *other)\
+{\
+  Py_ssize_t i;\
+  PyObject *key, *value;\
+  double scalar;\
+\
+  if (PyInt_Check(other)) scalar = (double)PyInt_AsLong(other);\
+  else if (PyLong_Check(other)) scalar = (double)PyLong_AsLong(other);\
+  else scalar = PyFloat_AsDouble(other);\
+\
+  cnterobject *ret_cnter = NULL;\
+\
+  ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);\
+\
+  /* Copy cnter into ret_cnter */ \
+  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)cnter) < 0)\
+   	return NULL;\
+\
+  i = 0;\
+  while (PyDict_Next((PyObject*)&(ret_cnter->dict), &i, &key, &value)) {\
+	int ok;\
+\
+	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) OP scalar);\
+	ok = PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);\
+	Py_DECREF(newValue);\
+\
+	if (ok < 0) {\
+	  Py_DECREF((PyObject*)ret_cnter);\
+	  return NULL;\
+	}\
+  }\
+\
+  return (PyObject*)ret_cnter;\
+}
+
+#define CNTER_OP(FN_NAME, FN_SCALAR_NAME, OP) \
+SCALAR_OP(FN_SCALAR_NAME, OP)\
+\
+static PyObject *\
+FN_NAME(PyObject *dd, PyObject *other)\
+{\
+  Py_ssize_t i;\
+  PyObject *key, *value;\
+\
+  if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))\
+		return FN_SCALAR_NAME((cnterobject*)dd, other);\
+\
+  if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
+    PyErr_BadArgument();\
+    return NULL;\
+  }\
+\
+  cnterobject *dd_cnter = (cnterobject*)dd;\
+  cnterobject *other_cnter = (cnterobject*)other;\
+  cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);\
+\
+  /* Set the default value*/\
+  ret_cnter->default_value = dd_cnter->default_value OP other_cnter->default_value;\
+\
+  int source;\
+  for (source = 0; source < 2; source++) {\
+		PyObject *src, *oth;\
+\
+		if (source == 0) {\
+		  src = other;\
+		  oth = (PyObject*)dd;\
+		}\
+		else {\
+		  oth = other;\
+		  src = (PyObject*)dd;\
+		}\
+\
+		i = 0;\
+		while (PyDict_Next(src, &i, &key, &value)) {\
+		  int contains = PyDict_Contains(oth, key);\
+\
+		  /* If we have a key other doesn't have, set the new value to other->default OP our value*/\
+		  if (contains == 0) {\
+				PyObject *newValue = PyFloat_FromDouble(((cnterobject*)oth)->default_value OP PyFloat_AsDouble(value));\
+				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);\
+				Py_DECREF(newValue);\
+\
+				if (ok < 0) {\
+			  	Py_DECREF((PyObject*)ret_cnter);\
+			  	return NULL;\
+				}\
+		  }\
+		  /* If we both have the key, OP the values (only on the first time around)*/\
+		  else if (contains > 0 && src == other) {\
+				/* both counters have the key, so just increment our count if we're the first source (not dd)*/\
+				PyObject *currentValue = PyDict_GetItem((PyObject*)dd, key);\
+				PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(currentValue) OP PyFloat_AsDouble(value));\
+				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);\
+				Py_DECREF(newValue);\
+\
+				if (ok < 0) {\
+			  	Py_DECREF((PyObject*)ret_cnter);\
+			  	return NULL;\
+				}\
+	  	}\
+	  	/* Else, there was an error*/\
+	  	else if (contains < 0) {\
+				Py_DECREF((PyObject*)ret_cnter);\
+				return NULL;\
+	  	}\
+		}\
+  }\
+\
+  return (PyObject*)ret_cnter;\
+}
+
 static PyObject *
 cnter_iscale(cnterobject *dd, PyObject *other)
 {
@@ -335,187 +448,13 @@ cnter_imul(PyObject *dd, PyObject *other)
 	return dd;
 }
 
-static PyObject *
-cnter_scale(cnterobject *dd, PyObject *other)
-{
-  Py_ssize_t i;
-  PyObject *key, *value;
-  double scale;
+CNTER_OP(cnter_mul, cnter_mul_scalar, *)
 
-  if (PyInt_Check(other)) scale = (double)PyInt_AsLong(other);
-  else if (PyLong_Check(other)) scale = (double)PyLong_AsLong(other);
-  else scale = PyFloat_AsDouble(other);
+CNTER_OP(cnter_div, cnter_div_scalar, /)
 
-  cnterobject *ret_cnter = NULL;
+CNTER_OP(cnter_add, cnter_add_scalar, +)
 
-  ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
-
-  // Copy dd into ret_cnter
-  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)dd) < 0)
-   	return NULL;
-
-  i = 0;
-  while (PyDict_Next((PyObject*)&(ret_cnter->dict), &i, &key, &value)) {
-	int ok;
-
-	PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) * scale);
-	ok = PyDict_SetItem((PyObject*)&(ret_cnter->dict), key, newValue);
-	Py_DECREF(newValue);
-
-	if (ok < 0) {
-	  Py_DECREF((PyObject*)ret_cnter);
-	  return NULL;
-	}
-  }
-	
-  return (PyObject*)ret_cnter;
-}
-
-static PyObject *
-cnter_mul(PyObject *dd, PyObject *other)
-{
-  Py_ssize_t i;
-  PyObject *key, *value;
-
-  if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
-		return cnter_scale((cnterobject*)dd, other);
-
-  if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {
-    PyErr_BadArgument();
-    return NULL;
-  }
-
-  cnterobject *dd_cnter = (cnterobject*)dd;
-  cnterobject *other_cnter = (cnterobject*)other;
-  cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
-
-  // Set the default value
-  ret_cnter->default_value = dd_cnter->default_value * other_cnter->default_value;
-
-  int source;
-  for (source = 0; source < 2; source++) {
-		PyObject *src, *oth;
-
-		if (source == 0) {
-		  src = other;
-		  oth = (PyObject*)dd;
-		}
-		else {
-		  oth = other;
-		  src = (PyObject*)dd;
-		}
-
-		i = 0;
-		while (PyDict_Next(src, &i, &key, &value)) {
-		  int contains = PyDict_Contains(oth, key);
-
-		  // If we have a key other doesn't have, set the new value to other->default * our value
-		  if (contains == 0) {
-				PyObject *newValue = PyFloat_FromDouble(((cnterobject*)oth)->default_value * PyFloat_AsDouble(value));
-				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);
-				Py_DECREF(newValue);
-
-				if (ok < 0) {
-			  	Py_DECREF((PyObject*)ret_cnter);
-			  	return NULL;
-				}
-		  }
-		  // If we both have the key, multiply the values (only on the first time around)
-		  else if (contains > 0 && src == other) {
-				// both counters have the key, so just increment our count if we're the first source (not dd)
-				PyObject *currentValue = PyDict_GetItem((PyObject*)dd, key);
-				PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(currentValue) * PyFloat_AsDouble(value));
-				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);
-				Py_DECREF(newValue);
-
-				if (ok < 0) {
-			  	Py_DECREF((PyObject*)ret_cnter);
-			  	return NULL;
-				}
-	  	}
-	  	// Else, there was an error
-	  	else if (contains < 0) {
-				Py_DECREF((PyObject*)ret_cnter);
-				return NULL;
-	  	}
-		}
-  }
-
-  return (PyObject*)ret_cnter;
-}
-
-static PyObject *
-cnter_add(PyObject *dd, PyObject *other)
-{
-  Py_ssize_t i;
-  PyObject *key, *value;
-
-  if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
-		return NULL;
-
-	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {
-	  PyErr_BadArgument();
-	  return NULL;
-	}
-
-	cnterobject *dd_cnter = (cnterobject*)dd;
-  cnterobject *other_cnter = (cnterobject*)other;
-  cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
-
-  // Set the default value
-  ret_cnter->default_value = dd_cnter->default_value + other_cnter->default_value;
-
-  int source;
-  for (source = 0; source < 2; source++) {
-		PyObject *src, *oth;
-
-		if (source == 0) {
-		  src = other;
-		  oth = (PyObject*)dd;
-		}
-		else {
-		  oth = other;
-		  src = (PyObject*)dd;
-		}
-
-		i = 0;
-		while (PyDict_Next(src, &i, &key, &value)) {
-		  int contains = PyDict_Contains(oth, key);
-
-		  // If we have a key other doesn't have, set the new value to other->default + our value
-		  if (contains == 0) {
-				PyObject *newValue = PyFloat_FromDouble(((cnterobject*)oth)->default_value + PyFloat_AsDouble(value));
-				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);
-				Py_DECREF(newValue);
-
-				if (ok < 0) {
-			  	Py_DECREF((PyObject*)ret_cnter);
-			  	return NULL;
-				}
-		  }
-		  // If we both have the key, add the values (only on the first time around)
-		  else if (contains > 0 && src == other) {
-				// both counters have the key, so just increment our count if we're the first source (not dd)
-				PyObject *currentValue = PyDict_GetItem((PyObject*)dd, key);
-				PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(currentValue) + PyFloat_AsDouble(value));
-				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);
-				Py_DECREF(newValue);
-
-				if (ok < 0) {
-			  	Py_DECREF((PyObject*)ret_cnter);
-			  	return NULL;
-				}
-	  	}
-	  	// Else, there was an error
-	  	else if (contains < 0) {
-				Py_DECREF((PyObject*)ret_cnter);
-				return NULL;
-	  	}
-		}
-  }
-
-  return (PyObject*)ret_cnter;
-}
+CNTER_OP(cnter_sub, cnter_sub_scalar, -)
 
 static PyObject *
 cnter_iadd_scalar(PyObject *dd, PyObject *other)
@@ -654,79 +593,6 @@ cnter_isub(PyObject *dd, PyObject *other)
 	Py_DECREF(defaultValue);
 	Py_INCREF(dd);
 	return dd;
-}
-
-static PyObject *
-cnter_sub(PyObject *dd, PyObject *other)
-{
-	Py_ssize_t i;
-	PyObject *key, *value;
-
-	if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))
-		return NULL;
-
-	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {
-	  PyErr_BadArgument();
-	  return NULL;
-	}
-
-	cnterobject *dd_cnter = (cnterobject*)dd;
-	cnterobject *other_cnter = (cnterobject*)other;
-	cnterobject *ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
-
-	// Set the default value
-	ret_cnter->default_value = dd_cnter->default_value - other_cnter->default_value;
-
-	int source;
-	for (source = 0; source < 2; source++) {
-		PyObject *src, *oth;
-
-		if (source == 0) {
-		  src = other;
-		  oth = (PyObject*)dd;
-		}
-		else {
-		  oth = other;
-		  src = (PyObject*)dd;
-		}
-
-		i = 0;
-		while (PyDict_Next(src, &i, &key, &value)) {
-		  int contains = PyDict_Contains(oth, key);
-
-		  // If we have a key other doesn't have, set the new value to other->default + our value
-		  if (contains == 0) {
-				PyObject *newValue = PyFloat_FromDouble(((cnterobject*)oth)->default_value - PyFloat_AsDouble(value));
-				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);
-				Py_DECREF(newValue);
-
-				if (ok < 0) {
-			  	Py_DECREF((PyObject*)ret_cnter);
-			  	return NULL;
-				}
-		  }
-		  // If we both have the key, add the values (only on the first time around)
-		  else if (contains > 0 && src == other) {
-				// both counters have the key, so just increment our count if we're the first source (not dd)
-				PyObject *currentValue = PyDict_GetItem((PyObject*)dd, key);
-				PyObject *newValue = PyFloat_FromDouble(PyFloat_AsDouble(currentValue) - PyFloat_AsDouble(value));
-				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);
-				Py_DECREF(newValue);
-
-				if (ok < 0) {
-			  	Py_DECREF((PyObject*)ret_cnter);
-			  	return NULL;
-				}
-	  	}
-	  	// Else, there was an error
-	  	else if (contains < 0) {
-				Py_DECREF((PyObject*)ret_cnter);
-				return NULL;
-	  	}
-		}
-	}
-
-	return (PyObject*)ret_cnter;
 }
 
 static PyMethodDef cnter_methods[] = {
@@ -892,7 +758,7 @@ static PyNumberMethods cnter_as_number = {
     (binaryfunc) cnter_add,				/*nb_add*/
 	(binaryfunc) cnter_sub,				/*nb_subtract*/
     (binaryfunc) cnter_mul,				/*nb_multiply*/
-	0,				/*nb_divide*/
+	(binaryfunc) cnter_div,				/*nb_divide*/
 	0,				/*nb_remainder*/
 	0,				/*nb_divmod*/
 	0,				/*nb_power*/
