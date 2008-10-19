@@ -8,13 +8,23 @@ from counter import Counter
 class CounterMap(defaultdict):
 	use_c_counter = False
 	
-	def __init__(self, use_c_counter = True):
+	def __init__(self, use_c_counter = True, default=0.0):
 		self.use_c_counter = use_c_counter
 		
 		if use_c_counter:
-			super(CounterMap, self).__init__(lambda:counter())
+			def counter_with_default():
+				ret = counter()
+				ret.default = default
+				return ret
+
+			super(CounterMap, self).__init__(counter_with_default)
 		else:
-			super(CounterMap, self).__init__(lambda:Counter())
+			def counter_with_default():
+				ret = Counter()
+				ret.default = default
+				return ret
+
+			super(CounterMap, self).__init__(counter_with_default)
 
 	def normalize(self):
 		for key in self.iterkeys():
@@ -23,6 +33,10 @@ class CounterMap(defaultdict):
 	def log_normalize(self):
 		for key in self.iterkeys():
 			self[key].log_normalize()
+
+	def log(self):
+		for key in self.iterkeys():
+			self[key].log()
 
 	def linearize(self):
 		"""Return an iterator over (key, subkey) pairs (so we can view a countermap as a vector)

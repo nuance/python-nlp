@@ -2,12 +2,13 @@ from collections import defaultdict
 from math import log, exp
 
 class Counter(defaultdict):
+	default = 0.0
 
 	def __init__(self):
-		super(Counter, self).__init__(lambda:0.0)
+		super(Counter, self).__init__(lambda:self.default)
 
 	def __init__(self, *args):
-		super(Counter, self).__init__(lambda:0.0, *args)
+		super(Counter, self).__init__(lambda:self.default, *args)
 
 	# I feel like there's a better way to do this... could use reduce, but
 	# that's about to be deprecated...

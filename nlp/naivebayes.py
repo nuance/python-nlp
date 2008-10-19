@@ -8,7 +8,7 @@ class NaiveBayesClassifier:
 		last_char = ''
 		for char in datum:
 			yield char
-			yield last_char+char
+			yield last_char + char
 			yield last_last_char + last_char + char
 			last_last_char = last_char
 			last_char = char
@@ -17,28 +17,42 @@ class NaiveBayesClassifier:
 		self.feature_distribution = CounterMap()
 		labels = set()
 
-		for (datum, label) in labeled_data:
+		for label, datum in labeled_data:
 			labels.add(label)
 			for feature in self.extract_features(datum):
 				self.feature_distribution[feature][label] += 1
 
 		for feature in self.feature_distribution.iterkeys():
 			for label in labels:
-				if self.feature_distribution[feature][label] == 0.0:
+				if label not in self.feature_distribution[feature]:
 					self.feature_distribution[feature][label] = 0.01
 
 		self.feature_distribution.normalize()
+		self.feature_distribution.log()
 
-	def label(self, datum):
-		label_distribution = None
+	def label_distribution(self, datum):
+		distribution = None
 
 		for feature in self.extract_features(datum):
-			if label_distribution:
-				label_distribution *= self.feature_distribution[feature]
+			if distribution:
+				distribution += self.feature_distribution[feature]
 			else:
-				label_distribution = self.feature_distribution[feature]
-		
- 		return label_distribution.arg_max()
+				distribution = self.feature_distribution[feature]
+
+		distribution.log_normalize()
+
+		return distribution
+
+	def label(self, datum):
+		distribution = None
+
+		for feature in self.extract_features(datum):
+			if distribution:
+				distribution += self.feature_distribution[feature]
+			else:
+				distribution = self.feature_distribution[feature]
+
+		return distribution.arg_max()
 
 def read_delimited_data(file_name):
 	delimited_file = open(file_name, "r")
@@ -57,6 +71,6 @@ if __name__ == "__main__":
 	testing_data = read_delimited_data("data/pnp-test.txt")
 
 	classifier = NaiveBayesClassifier()
-	classifier.train(training_data)
+	classifier.train((label, datum) for datum, label in training_data)
 
 	print "Correctly labeled %d of %d" % (sum(1 for (datum, label) in testing_data if classifier.label(datum) == label), len(testing_data))

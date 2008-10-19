@@ -174,6 +174,31 @@ cnter_log_normalize(cnterobject *dd)
 PyDoc_STRVAR(cnter_log_normalize_doc, "D.log_normalize() -> normalizes the log counts in D, returns None");
 
 static PyObject *
+cnter_log(cnterobject *dd)
+{
+	Py_ssize_t i;
+	PyObject *key, *value;
+
+	i = 0;
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
+	  int ok;
+
+	  PyObject *newValue = PyFloat_FromDouble(log(PyFloat_AsDouble(value)));
+	  ok = PyDict_SetItem((PyObject*)dd, key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) return NULL;
+	}
+	
+	dd->default_value = log(dd->default_value);
+	
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyDoc_STRVAR(cnter_log_doc, "D.log() -> in place logs the counts in D and the default value, returns None");
+
+static PyObject *
 cnter_total_count(cnterobject *dd)
 {
 	Py_ssize_t i;
@@ -481,6 +506,8 @@ static PyMethodDef cnter_methods[] = {
 	 cnter_normalize_doc},
 	{"log_normalize", (PyCFunction)cnter_log_normalize, METH_NOARGS,
 	 cnter_log_normalize_doc},
+	{"log", (PyCFunction)cnter_log, METH_NOARGS,
+	 cnter_log_doc},
 	{"total_count", (PyCFunction)cnter_total_count, METH_NOARGS,
 	 cnter_total_count_doc},
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
