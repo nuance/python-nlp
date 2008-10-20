@@ -1,3 +1,5 @@
+from math import exp
+from copy import copy
 from countermap import CounterMap
 
 class NaiveBayesClassifier:
@@ -37,7 +39,7 @@ class NaiveBayesClassifier:
 			if distribution:
 				distribution += self.feature_distribution[feature]
 			else:
-				distribution = self.feature_distribution[feature]
+				distribution = copy(self.feature_distribution[feature])
 
 		distribution.log_normalize()
 
@@ -50,7 +52,7 @@ class NaiveBayesClassifier:
 			if distribution:
 				distribution += self.feature_distribution[feature]
 			else:
-				distribution = self.feature_distribution[feature]
+				distribution = copy(self.feature_distribution[feature])
 
 		return distribution.arg_max()
 
