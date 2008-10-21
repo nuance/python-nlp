@@ -354,9 +354,11 @@ FN_NAME(PyObject *dd, PyObject *other)\
 		while (PyDict_Next(src, &i, &key, &value)) {\
 		  int contains = PyDict_Contains(oth, key);\
 \
-		  /* If we have a key other doesn't have, set the new value to other->default OP our value*/\
+		  /* If we have a key other doesn't have, set the new value to our value OP other->default*/\
 		  if (contains == 0) {\
-				PyObject *newValue = PyFloat_FromDouble(((cnterobject*)oth)->default_value OP PyFloat_AsDouble(value));\
+			PyObject *newValue;\
+			if (src == dd) newValue = PyFloat_FromDouble(PyFloat_AsDouble(value) OP ((cnterobject*)oth)->default_value);\
+			else newValue = PyFloat_FromDouble(((cnterobject*)oth)->default_value OP PyFloat_AsDouble(value));\
 				int ok = PyDict_SetItem((PyObject*)ret_cnter, key, newValue);\
 				Py_DECREF(newValue);\
 \

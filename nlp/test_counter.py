@@ -1,223 +1,250 @@
 from copy import copy
-from nlp import counter
 from math import log
+import unittest
 
-def test():
-	all_spam = counter()
-	all_spam['spam'] = 2
+from nlp import counter
 
-	assert(all_spam.total_count() == 2)
-	assert(all_spam.arg_max() == 'spam')
+class CounterTester(unittest.TestCase):
+	def setUp(self):
+		self.all_spam = counter()
+		self.all_spam['spam'] = 2
+
+		self.half_spam = counter()
+		self.half_spam['spam'] += 1
+		self.half_spam['ham'] += 1
 	
-	all_spam.normalize()
-
-	assert(all_spam['spam'] == 1.0)
-	assert(all_spam['ham'] == 0.0)
-	assert(all_spam.arg_max() == 'spam')
-
-	assert('spam' in all_spam.keys())
-	assert('ham' in all_spam.keys())
-
-	assert(len(all_spam.keys()) == 2)
-	assert(len(all_spam.values()) == 2)
-
-	print "All spam: %s" % all_spam
+	def test_single_key(self):
+		self.assertEqual(self.all_spam.total_count(), 2)
+		self.assertEqual(self.all_spam.arg_max(), 'spam')
 	
-	del(all_spam)
+		self.all_spam.normalize()
 
-	half_spam = counter()
-	half_spam['spam'] += 1
-	half_spam['ham'] += 1
+		self.assertEqual(self.all_spam['spam'], 1.0)
+		self.failUnless(self.all_spam['ham'] == 0.0)
+		self.failUnless(self.all_spam.arg_max() == 'spam')
 
-	assert(half_spam.total_count() == 2)
-	assert(len(half_spam.keys()) == 2)
-	assert(half_spam.arg_max() in ('spam', 'ham'))
+		self.failUnless('spam' in self.all_spam.keys())
+		self.failUnless('ham' in self.all_spam.keys())
 
-	half_spam.normalize()
+		self.failUnless(len(self.all_spam.keys()) == 2)
+		self.failUnless(len(self.all_spam.values()) == 2)
 
-	assert(half_spam['spam'] == 0.5)
-	assert(half_spam['ham'] == 0.5)
-	assert(half_spam.arg_max() in ('spam', 'ham'))
-	assert(len(half_spam.keys()) == 2)
 
-	print "Half spam: %s" % half_spam
+	def test_two_keys_normalize(self):
+		self.failUnless(self.half_spam.total_count() == 2)
+		self.failUnless(len(self.half_spam.keys()) == 2)
+		self.failUnless(self.half_spam.arg_max() in ('spam', 'ham'))
 
-	half_spam = half_spam * 2.0
+		self.half_spam.normalize()
 
-	print "Half spam: %s" % half_spam
+		self.failUnless(self.half_spam['spam'] == 0.5)
+		self.failUnless(self.half_spam['ham'] == 0.5)
+		self.failUnless(self.half_spam.arg_max() in ('spam', 'ham'))
+		self.failUnless(len(self.half_spam.keys()) == 2)
+
+
+	def test_scalar_multiplication(self):
+		self.half_spam.normalize()
+
+		self.half_spam = self.half_spam * 2.0
+
+		self.failUnless(self.half_spam['spam'] == 1.0)
+		self.failUnless(self.half_spam['ham'] == 1.0)
+		self.failUnless(self.half_spam.arg_max() in ('spam', 'ham'))
+		self.failUnless(len(self.half_spam.keys()) == 2)
+
+		self.half_spam = self.half_spam * 0.5
+
+		self.failUnless(self.half_spam['spam'] == 0.5)
+		self.failUnless(self.half_spam['ham'] == 0.5)
+		self.failUnless(self.half_spam.arg_max() in ('spam', 'ham'))
+		self.failUnless(len(self.half_spam.keys()) == 2)
+
+	def test_multiplication(self):
+		bob = counter()
+		bob['spam'] = 1.0
+		bob['ham'] = 1.0
+		self.half_spam = counter()
+		self.half_spam['spam'] += 1
+		self.half_spam['ham'] += 1
+		self.half_spam.normalize()
+
+		self.failUnless(bob['spam'] == 1.0)
+		self.failUnless(bob['ham'] == 1.0)
+		self.failUnless(bob.arg_max() in ('spam', 'ham'))
+		self.failUnless(len(bob.keys()) == 2)
+
+		jim = bob * self.half_spam
 	
-	assert(half_spam['spam'] == 1.0)
-	assert(half_spam['ham'] == 1.0)
-	assert(half_spam.arg_max() in ('spam', 'ham'))
-	assert(len(half_spam.keys()) == 2)
+		self.failUnless(jim['spam'] == 0.5)
+		self.failUnless(jim['ham'] == 0.5)
+		self.failUnless(jim.arg_max() in ('spam', 'ham'))
+		self.failUnless(len(jim.keys()) == 2)
 
-	half_spam = half_spam * 0.5
+	def test_subtraction(self):
+		bob = counter()
+		bob['spam'] = 1.0
+		bob['ham'] = 1.0
+		jim = counter()
+		jim['spam'] = 0.5
+		jim['ham'] = 0.5
+		jim['tuna'] = 1.0
 
-	assert(half_spam['spam'] == 0.5)
-	assert(half_spam['ham'] == 0.5)
-	assert(half_spam.arg_max() in ('spam', 'ham'))
-	assert(len(half_spam.keys()) == 2)
+		bob -= jim
 
-	print "Half spam: %s" % half_spam
-
-	bob = half_spam * 2
-
-	assert(bob['spam'] == 1.0)
-	assert(bob['ham'] == 1.0)
-	assert(bob.arg_max() in ('spam', 'ham'))
-	assert(len(bob.keys()) == 2)
-
-	print "bob = half_spam * 2 done"
-	
-	print bob, "*",
-	print half_spam, "=",
-	jim = bob * half_spam
-	print jim
-	
-	assert(jim['spam'] == 0.5)
-	assert(jim['ham'] == 0.5)
-	assert(jim.arg_max() in ('spam', 'ham'))
-	assert(len(jim.keys()) == 2)
-
-	print "jim = bob * half_spam done"
-
-	print bob
-	bob -= jim
-
-	print "sub done"
-	print jim
-	
-	assert(bob['spam'] == 0.5)
-	assert(bob['ham'] == 0.5)
-	assert(bob.arg_max() in ('spam', 'ham'))
-	assert(len(bob.keys()) == 2)
-
-	print "bob -= jim done"
-	
-	del(half_spam)
-	del(bob)
-	del(jim)
-
-	log_third_spam = counter()
-	log_third_spam['spam'] += log(1)
-	log_third_spam['ham'] += log(2)
-
-	log_third_spam.log_normalize()
-
-	assert(log_third_spam['spam'] == log(1)-log(3))
-	assert(log_third_spam['ham'] == log(2)-log(3))
-
-	print "Log third spam: %s" % log_third_spam
-
-	del(log_third_spam)
-
-	amul = counter()
-	amul['bob'] = 2
-	amul['jim'] = 2
-	bmul = counter()
-	bmul['bob'] = 4
-
-	amul *= bmul
-	bmul *= amul
-
-	assert(amul['bob'] == 8)
-	assert(bmul['bob'] == 32)
-	assert(amul['jim'] == 0)
-	assert(bmul['jim'] == 0)
-
-	del(amul)
-	del(bmul)
-	
-	aadd = counter()
-	aadd['bob'] = 2
-	badd = counter()
-	badd['bob'] = 4
-
-	aadd += badd
-
-	assert(aadd['bob'] == 6)
-	assert(badd['bob'] == 4)
-
-	base = counter()
-	sub = counter()
-
-	base['cat'] += 1
-	base['dog'] += 1
-
-	sub['cat'] = 0.001
-
-	# Exercise the garbage collector - ideally we should be caching recently
-	# released counters to optimize for this
-	for i in xrange(10000):
-		jim = base - sub
-
-	print jim
-
-	# Testing default values
-	for operation in ("__add__", "__mul__"):
-		print "Testing %s" % operation
-
-		foo = counter()
-		foo.default = float("-inf")
-		foo['a'] = 1.0
-
-		bar = counter()
-		bar.default = float("-inf")
-		bar['b'] = 2.0
-
-		foofunc = getattr(foo, operation)
-		barfunc = getattr(bar, operation)
-
-		# Transitivity
-		assert foofunc(bar) == barfunc(foo), "%s != %s" % (foofunc(bar), barfunc(foo))
-		print "Transitivity passed"
-
-		# Test that the values are correct
-		bob = foofunc(bar)
-		print bob
-		assert bob['a'] == float("-inf")
-		assert bob['b'] == float("-inf")
-		if operation == "__add__": val = float("-inf")
- 		elif operation == "__mul__": val = float("inf")
-		assert bob['missing'] == val
-		print "Values passed"
-
-		# Verify that the originals are unchanged
-		assert foo['a'] == 1.0 and foo['missing'] == float("-inf")
-		assert bar['b'] == 2.0 and bar['missing'] == float("-inf")
-		print "Changes passed"
-
-	# Testing default values for in-place ops
-	for operation in ("__iadd__", "__imul__"):
-		print "Testing %s" % operation
-
-		foo = counter()
-		foo.default = float("-inf")
-		foo['a'] = 1.0
-
-		bar = counter()
-		bar.default = float("-inf")
-		bar['b'] = 2.0
+		self.failUnless(bob['spam'] == 0.5, self.half_spam)
+		self.failUnless(bob['ham'] == 0.5)
+		self.failUnless(bob.arg_max() in ('spam', 'ham'))
+		self.failUnless(len(bob.keys()) == 3)
 		
-		foofunc = getattr(foo, operation)
-		barfunc = getattr(bar, operation)
-		orig = copy(foo)
-		orig.default = foo.default
+		foo = counter()
+		foo['spam'] = 1.0
+		foo['ham'] = 1.5
+		foo['cheese'] = 3.5
+		
+		bar = foo - jim
+		
+		self.assertEqual(bar['spam'], 0.5)
+		self.assertEqual(bar['ham'], 1.0)
+		self.assertEqual(bar['cheese'], 3.5)
+		self.assertEqual(bar['tuna'], -1.0)
 
-		foofunc(bar)
-		barfunc(orig)
+		self.assertEqual(foo['spam'], 1.0)
+		self.assertEqual(foo['ham'], 1.5)
+		self.assertEqual(foo['cheese'], 3.5)
+		self.failIf('tuna' in foo)
 
-		# Transitivity
-		assert foo == bar, "%s != %s" % (foo, bar)
-		print "Transitivity passed"
+		self.assertEqual(jim['spam'], 0.5)
+		self.assertEqual(jim['ham'], 0.5)
+		self.assertEqual(jim['tuna'], 1.0)
+		self.failIf('cheese' in jim)
 
-		# Test that the values are correct
-		assert bar['a'] == float("-inf")
-		assert bar['b'] == float("-inf")
-		if operation == "__iadd__": val = float("-inf")
- 		elif operation == "__imul__": val = float("inf")
-		assert bar['missing'] == val
-		print "Values passed"
+	def test_log_normalize(self):
+		log_third_spam = counter()
+		log_third_spam['spam'] += log(1)
+		log_third_spam['ham'] += log(2)
+
+		log_third_spam.log_normalize()
+
+		self.failUnless(log_third_spam['spam'] == log(1)-log(3))
+		self.failUnless(log_third_spam['ham'] == log(2)-log(3))
+
+	def test_in_place_multiply(self):
+		amul = counter()
+		amul['bob'] = 2
+		amul['jim'] = 2
+		bmul = counter()
+		bmul['bob'] = 4
+
+		amul *= bmul
+		bmul *= amul
+
+		self.failUnless(amul['bob'] == 8)
+		self.failUnless(bmul['bob'] == 32)
+		self.failUnless(amul['jim'] == 0)
+		self.failUnless(bmul['jim'] == 0)
+
+	def test_in_place_add(self):
+		aadd = counter()
+		aadd['bob'] = 2
+		badd = counter()
+		badd['bob'] = 4
+
+		aadd += badd
+
+		self.failUnless(aadd['bob'] == 6)
+		self.failUnless(badd['bob'] == 4)
+
+	def test_exercise_gc(self):
+		base = counter()
+		sub = counter()
+
+		base['cat'] += 1
+		base['dog'] += 1
+
+		sub['cat'] = 0.001
+
+		# Exercise the garbage collector - ideally we should be caching recently
+		# released counters to optimize for this
+		for i in xrange(10000):
+			jim = base - sub
+
+		self.assertEqual(jim['cat'], 0.999)
+		self.assertEqual(jim['dog'], 1.0)
+		self.assertEqual(len(jim.keys()), 2)
+
+	def test_add_mul_comprehensive(self):
+		# Testing default values
+		for operation in ("__add__", "__mul__"):
+			foo = counter()
+			foo.default = float("-inf")
+			foo['a'] = 1.0
+
+			bar = counter()
+			bar.default = float("-inf")
+			bar['b'] = 2.0
+
+			foofunc = getattr(foo, operation)
+			barfunc = getattr(bar, operation)
+
+			# Transitivity
+			self.failUnless(foofunc(bar) == barfunc(foo), "%s != %s" % (foofunc(bar), barfunc(foo)))
+
+			# Test that the values are correct
+			bob = foofunc(bar)
+			self.failUnless(bob['a'] == float("-inf"))
+			self.failUnless(bob['b'] == float("-inf"))
+			if operation == "__add__": val = float("-inf")
+	 		elif operation == "__mul__": val = float("inf")
+			self.failUnless(bob['missing'] == val)
+
+			# Verify that the originals are unchanged
+			self.failUnless(foo['a'] == 1.0 and foo['missing'] == float("-inf"))
+			self.failUnless(bar['b'] == 2.0 and bar['missing'] == float("-inf"))
+
+	def test_iadd_imul_comprehensive(self):
+		# Testing default values for in-place ops
+		for operation in ("__iadd__", "__imul__"):
+			foo = counter()
+			foo.default = float("-inf")
+			foo['a'] = 1.0
+
+			bar = counter()
+			bar.default = float("-inf")
+			bar['b'] = 2.0
+		
+			foofunc = getattr(foo, operation)
+			barfunc = getattr(bar, operation)
+			orig = copy(foo)
+			orig.default = foo.default
+			orig2 = copy(foo)
+			orig2.default = foo.default
+
+			foofunc(bar)
+			barfunc(orig)
+		
+			# No side effects
+			self.failUnless(orig == orig2)
+
+			# Transitivity
+			self.failUnless(foo == bar, "%s != %s" % (foo, bar))
+
+			# Test that the values are correct
+			self.failUnless(bar['a'] == float("-inf"))
+			self.failUnless(bar['b'] == float("-inf"))
+			if operation == "__iadd__": val = float("-inf")
+	 		elif operation == "__imul__": val = float("inf")
+			self.failUnless(bar['missing'] == val)
+
+	def test_no_side_effects(self):
+		foo = counter()
+		bar = counter()
+		foo['a'] += 2.0
+		foo['b'] += 1.0
+
+		foo2 = copy(foo)
+		bar += foo
+		self.failUnless(foo2 == foo)
 
 if __name__ == "__main__":
-	test()
+	unittest.main()
