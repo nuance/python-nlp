@@ -32,7 +32,7 @@ class HiddenMarkovModel:
 
 		return padding
 
-	def train(self, labeled_sequence):
+	def train(self, labeled_sequence, fallback_model=None):
 		label_counts = Counter()
 		# Currently this assumes the HMM is multinomial
 		last_label = None
@@ -66,7 +66,17 @@ class HiddenMarkovModel:
 				self.reverse_transition[sublabel][label] = score
 				self.reverse_transition[sublabel].default = float("-inf")
 
+		# Train the fallback model on the label-emission pairs
+		if fallback_model:
+			self.fallback_model = fallback_model()
+			self.fallback_model.train((label, emission) for label, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+		else:
+			self.fallback_model = None
+
 	def fallback_probs(self, emission):
+		if self.fallback_model:
+			return self.fallback_model.label_distribution(emission)
+
 		fallback = Counter()
 		uniform = log(1.0 / len(self.labels))
 		for label in self.labels: fallback[label] = uniform

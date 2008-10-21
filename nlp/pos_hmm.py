@@ -4,6 +4,8 @@ from time import time
 
 from hmm import HiddenMarkovModel, START_LABEL, STOP_LABEL
 from penntreebankreader import PennTreebankReader
+from naivebayes import NaiveBayesClassifier
+from maximumentropy import MaximumEntropyClassifier
 
 def merge_stream(stream):
 	# Combine sentences into one long string, with each sentence start with <START> and ending with <STOP>
@@ -49,7 +51,7 @@ def pos_problem(args):
 	print "Training"
 	start = time()
 	pos_tagger = HiddenMarkovModel()
-	pos_tagger.train(training_stream[1:-2])
+	pos_tagger.train(training_stream[1:-2], fallback_model=MaximumEntropyClassifier)
 	stop = time()
 	print "Training: %f" % (stop-start)
 

@@ -16,6 +16,8 @@ from itertools import izip, repeat
 def slow_log_probs(datum_features, weights, labels):
 	log_probs = Counter((label, sum((weights[label] * datum_features).itervalues())) for label in labels)
 	log_probs.log_normalize()
+	log_probs.default = float("-inf")
+
 	return log_probs
 
 def slow_expected_counts(labeled_extracted_features, labels, log_probs):
@@ -160,14 +162,12 @@ class MaximumEntropyClassifier:
 		self.weights = Minimizer.minimize(weight_function, initial_weights)
 
 	def train(self, labeled_data):
-		print "Building label set"
-		self.labels = set(label for _,label in labeled_data)
-
-		self.features = set()
+		self.labels, self.features = set(), set()
 
 		print "Labeling data..."
 		labeled_features = []
-		for (datum, label) in labeled_data:
+		for label, datum in labeled_data:
+			self.labels.add(label)
 			features = Counter()
 			for feature in self.extract_features(datum):
 				features[feature] += 1.0
@@ -186,6 +186,17 @@ class MaximumEntropyClassifier:
 		log_probs = self.get_log_probabilities(datum_features)
 
 		return log_probs.arg_max()
+		
+	def label_distribution(self, datum):
+		datum_features = Counter()
+		for feature in self.extract_features(datum):
+			datum_features[feature] += 1.0
+
+		log_probs = self.get_log_probabilities(datum_features)
+
+		print log_probs
+
+		return log_probs
 
 def read_delimited_data(file_name):
 	delimited_file = open(file_name, "r")
