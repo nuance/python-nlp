@@ -326,7 +326,7 @@ FN_NAME(PyObject *dd, PyObject *other)\
 		return FN_SCALAR_NAME((cnterobject*)dd, other);\
 \
   if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
-    PyErr_BadArgument();\
+    PyErr_SetString(PyExc_ValueError, "Counter OP requires two counters or a counter and a scalar");\
     return NULL;\
   }\
 \
@@ -433,7 +433,7 @@ FN_NAME(PyObject *dd, PyObject *other)\
 	  return FN_SCALAR_NAME((cnterobject*)dd, other);\
 \
 	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
-	  PyErr_BadArgument();\
+	  PyErr_SetString(PyExc_ValueError, "Counter in-place OP requires two counters or a counter and a scalar"); \
 	  return NULL;\
 	}\
 \
@@ -619,29 +619,62 @@ NlpCounter_New(void)
   return (PyObject *)mp;
 }
 
-void
+int
 NlpCounter_Normalize(PyObject *op)
 {
   cnterobject *mp;
 
-  if (!NlpCounter_Check(op))
-	return;
+  if (!NlpCounter_Check(op)) {
+	PyErr_BadArgument();
+	return -1;
+  }
   
   mp = (cnterobject*)op;
   cnter_normalize(mp);
+  return 1;
 }
 
-void
+int
 NlpCounter_LogNormalize(PyObject *op)
 {
   cnterobject *mp;
 
-  if (!NlpCounter_Check(op))
-	return;
+  if (!NlpCounter_Check(op)) {
+	PyErr_BadArgument();
+	return -1;
+  }
   
   mp = (cnterobject*)op;
   cnter_log_normalize(mp);
+  return 1;
 }
+
+// Convenience method for either getting the value for the key
+// or returning the default value
+// NOTE: This doesn't do any type checking (for speed purposes)
+// NOTE: same ref-counting semantics as PyDict_GetItem
+PyObject*
+NlpCounter_XGetItem(PyObject *cnter, PyObject *key)
+{
+  PyObject *value = PyDict_GetItem(cnter, key);
+
+  if (!value)
+	return PyFloat_FromDouble(((cnterobject*)cnter)->default_value);
+
+  return value;
+}
+
+double
+NlpCounter_XGetDouble(PyObject *cnter, PyObject *key)
+{
+  PyObject *value = PyDict_GetItem(cnter, key);
+
+  if (!value)
+	return ((cnterobject*)cnter)->default_value;
+
+  return PyFloat_AsDouble(value);
+}
+
 
 /****************/
 
@@ -765,6 +798,8 @@ initnlp(void)
 	NlpCounter_API[0] = (void *)NlpCounter_New;
 	NlpCounter_API[1] = (void *)NlpCounter_Normalize;
 	NlpCounter_API[2] = (void *)NlpCounter_LogNormalize;
+	NlpCounter_API[3] = (void *)NlpCounter_XGetItem;
+	NlpCounter_API[4] = (void *)NlpCounter_XGetDouble;
 
 	c_api_object = PyCObject_FromVoidPtr((void *)NlpCounter_API, NULL);
 

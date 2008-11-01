@@ -1,8 +1,8 @@
 from math import exp
 import time
 
-from maxent import get_log_probabilities as log_probs
 from nlp import counter
+from maxent import get_log_probabilities as log_probs
 from countermap import CounterMap
 
 def slow_log_probs(datum_features, weights, labels):

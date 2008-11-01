@@ -18,11 +18,11 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "OOO", &features, &weights, &labels))
     return NULL;
 
-  // This is crap for testing - should see if weights is a countermap, not just a dict
-  // (at min, check if values of weights are dicts)
-  if (!PyDict_Check(features) || ! PyDict_Check(weights) || ! PyAnySet_Check(labels))
-	// FIXME: Should be setting an exception here
+  // weights' elements will be checked during iteration
+  if (!NlpCounter_Check(features) || ! PyDict_Check(weights) || ! PyAnySet_Check(labels)) {
+	PyErr_SetString(PyExc_ValueError, "get_log_probabilities requres args: Counter, CounterMap, Set");
 	return NULL;
+  }
 
 // log_probs = Counter()
   PyObject *log_probs = NlpCounter_New();
@@ -35,20 +35,30 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
 	double sum = 0.0;
 	Py_ssize_t j;
 	PyObject *featureKey, *featureCount;
-	PyObject *labelWeights = PyDict_GetItem(weights, label);;
-	
+	PyObject *labelWeights = PyDict_GetItem(weights, label);
+
+	if (!labelWeights) {
+	  PyErr_SetString(PyExc_ValueError, "label weights missing a key");
+	  return NULL;
+	}
+
+	if (!NlpCounter_Check(labelWeights)) {
+	  PyErr_SetString(PyExc_ValueError, "weights contains non-counter types");
+	  return NULL;
+	}
+
 	if (labelWeights) {
 	  j = 0;
 	  while (PyDict_Next((PyObject*)features, &j, &featureKey, &featureCount)) {
-		PyObject *weight = PyDict_GetItem(labelWeights, featureKey);
-		sum += PyFloat_AsDouble(featureCount) * PyFloat_AsDouble(weight);
+		double weight = NlpCounter_XGetDouble(labelWeights, featureKey);
+		sum += PyFloat_AsDouble(featureCount) * weight;
 	  }
 	}
 
 	newValue = PyFloat_FromDouble(sum);
 	ok = PyDict_SetItem(log_probs, label, newValue);
-
 	Py_DECREF(newValue);
+
 	if (ok < 0) {
 	  Py_DECREF(log_probs);
 	  return NULL;
@@ -56,7 +66,10 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
   }
 
   // log_probs.log_normalize()
-  NlpCounter_LogNormalize(log_probs);
+  if (!NlpCounter_LogNormalize(log_probs)) {
+	PyErr_SetString(PyExc_ValueError, "NlpCounter_LogNormalize failed!");
+	return NULL;
+  }
 
   return log_probs;
 }
@@ -89,7 +102,7 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	printf("Types suck\n");
 
 	Py_XDECREF(labeled_extracted_features_tuple);
-	PyErr_BadArgument();
+	PyErr_SetString(PyExc_ValueError, "Expected counts got a bad type passed in");
 	return NULL;
   }
 
@@ -152,28 +165,15 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	  label_index = 0;
 	  label_num = 0;
 	  while (_PySet_Next(labels, &label_index, &label)) {
-		PyObject *oldValue, *newValue, *logProb, *labelCounter;
-		double oldCount = 0.0;
+		PyObject *newValue, *labelCounter;
+		double oldCount, logProb;
 		int ok;
 
 		labelCounter = label_counter_cache[label_num];
-		oldValue = PyDict_GetItem(labelCounter, feature);
+		oldCount = NlpCounter_XGetDouble(labelCounter, feature);
+		logProb = NlpCounter_XGetDouble(feature_probs, label);
 
-		if (oldValue) {
-		  oldCount = PyFloat_AsDouble(oldValue);
-		}
-
-		logProb = PyDict_GetItem(feature_probs, label);
-
-		if (! logProb) {
-		  printf("Couldn't get logProb\n");
-		  free(label_counter_cache);
-		  Py_DECREF(expected_counts);
-		  Py_XDECREF(labeled_extracted_features_tuple);
-		  return NULL;
-		}
-
-		newValue = PyFloat_FromDouble(oldCount + exp(PyFloat_AsDouble(logProb)) * featureCount);
+		newValue = PyFloat_FromDouble(oldCount + exp(logProb) * featureCount);
 		ok = PyDict_SetItem(labelCounter, feature, newValue);
 
 		Py_DECREF(newValue);

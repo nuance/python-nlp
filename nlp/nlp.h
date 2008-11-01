@@ -7,43 +7,50 @@ extern "C" {
 
 #define PyNlp_API_pointers 0
 
-PyAPI_DATA(PyTypeObject) NlpCounter_Type;
+  PyAPI_DATA(PyTypeObject) NlpCounter_Type;
 
 #define NlpCounter_Check(op) PyObject_TypeCheck(op, &NlpCounter_Type)
 #define NlpCounter_CheckExact(op) ((op)->ob_type == &NlpCounter_Type)
 
-#define NlpCounter_API_pointers 3
+#define NlpCounter_API_pointers 5
 
 #ifdef NLP_MODULE
 
-static PyObject* NlpCounter_New(void);
-static void NlpCounter_Normalize(PyObject *mp);
-static void NlpCounter_LogNormalize(PyObject *mp);
+  static PyObject* NlpCounter_New(void);
+  static int NlpCounter_Normalize(PyObject *mp);
+  static int NlpCounter_LogNormalize(PyObject *mp);
+  static PyObject* NlpCounter_XGetItem(PyObject *cnter, PyObject *key);
+  static double NlpCounter_XGetDouble(PyObject *cnter, PyObject *key);
 
 #else
 
-static void **Nlp_API;
+  static void **Nlp_API;
 
 #define NlpCounter_New (*(PyObject* (*)(void)) Nlp_API[0])
-#define NlpCounter_Normalize (*(void (*)(PyObject *mp)) Nlp_API[1])
-#define NlpCounter_LogNormalize (*(void (*)(PyObject *mp)) Nlp_API[2])
+#define NlpCounter_Normalize (*(int (*)(PyObject *mp)) Nlp_API[1])
+#define NlpCounter_LogNormalize (*(int (*)(PyObject *mp)) Nlp_API[2])
+#define NlpCounter_XGetItem (*(PyObject* (*)(PyObject *cnter, PyObject *key)) Nlp_API[3])
+#define NlpCounter_XGetDouble (*(double (*)(PyObject *cnter, PyObject *key)) Nlp_API[4])
 
-static int
-import_nlp(void)
-{
-  PyObject *module = PyImport_ImportModule("nlp");
+  static int
+  import_nlp(void)
+  {
+	PyObject *module = PyImport_ImportModule("nlp");
 
-  if (module != NULL) { 
- 	PyObject *c_api_object = PyObject_GetAttrString(module, "_C_API"); 
+	if (module != NULL) { 
+	  PyObject *c_api_object = PyObject_GetAttrString(module, "_C_API"); 
 
- 	if (c_api_object == NULL) 
- 	  return -1; 
- 	if (PyCObject_Check(c_api_object)) 
- 	  Nlp_API = (void **)PyCObject_AsVoidPtr(c_api_object); 
- 	Py_DECREF(c_api_object); 
-   } 
-  return 0;
-}
+	  if (c_api_object == NULL) 
+		return -1; 
+	  if (PyCObject_Check(c_api_object)) 
+		Nlp_API = (void **)PyCObject_AsVoidPtr(c_api_object); 
+	  Py_DECREF(c_api_object);
+	  return 0;
+	}
+
+	PyErr_SetString(PyExc_ImportError, "Couldn't import nlp module");
+	return -1;
+  }
 
 #endif
 
