@@ -2,8 +2,7 @@
 
 import sys
 import random
-from itertools import izip, islice
-from time import time
+from itertools import izip
 from math import log, exp
 
 from countermap import CounterMap
@@ -54,11 +53,9 @@ class HiddenMarkovModel:
 		self.labels = self.emission.keys()
 
 		# Convert to log score counters
-		for counter_map in (self.label_emissions, self.transition, self.emission):
-			for sub_counter in counter_map.itervalues():
-				sub_counter.default = float("-inf")
-				for sub_key, score in sub_counter.iteritems():
-					sub_counter[sub_key] = log(score)
+		self.label_emissions.log()
+		self.transition.log()
+		self.emission.log()
 
 		# Construct reverse transition probabilities
 		for label, counter in self.transition.iteritems():

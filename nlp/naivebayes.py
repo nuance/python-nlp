@@ -1,4 +1,3 @@
-from math import exp
 from copy import copy
 from countermap import CounterMap
 
@@ -25,9 +24,7 @@ class NaiveBayesClassifier:
 				self.feature_distribution[feature][label] += 1
 
 		for feature in self.feature_distribution.iterkeys():
-			for label in labels:
-				if label not in self.feature_distribution[feature]:
-					self.feature_distribution[feature][label] = 0.01
+			self.feature_distribution[feature].default = 0.01
 
 		self.feature_distribution.normalize()
 		self.feature_distribution.log()

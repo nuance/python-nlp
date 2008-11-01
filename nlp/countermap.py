@@ -35,8 +35,8 @@ class CounterMap(defaultdict):
 			self[key].log_normalize()
 
 	def log(self):
-		for key in self.iterkeys():
-			self[key].log()
+		for sub_counter in self.itervalues():
+			sub_counter.log()
 
 	def linearize(self):
 		"""Return an iterator over (key, subkey) pairs (so we can view a countermap as a vector)
