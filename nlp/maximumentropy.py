@@ -194,8 +194,6 @@ class MaximumEntropyClassifier:
 
 		log_probs = self.get_log_probabilities(datum_features)
 
-		print log_probs
-
 		return log_probs
 
 def read_delimited_data(file_name):

@@ -8,6 +8,7 @@ from countermap import CounterMap
 def slow_log_probs(datum_features, weights, labels):
 	log_probs = counter((label, sum((weights[label] * datum_features).itervalues())) for label in labels)
 	log_probs.log_normalize()
+	log_probs.default = float("-inf")
 	return log_probs
 
 features = counter((key, 1.0) for key in ['warm', 'fuzzy'])
@@ -22,6 +23,7 @@ logp = log_probs(features, weights, labels)
 
 print "** Log probs **"
 print logp
+print slow_log_probs(features, weights, labels)
 print "** Regular probs **"
 print counter((key, exp(val)) for key, val in logp.iteritems())
 

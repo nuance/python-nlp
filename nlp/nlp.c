@@ -675,6 +675,19 @@ NlpCounter_XGetDouble(PyObject *cnter, PyObject *key)
   return PyFloat_AsDouble(value);
 }
 
+int
+NlpCounter_SetDefault(PyObject *cnter, double new_default)
+{
+  ((cnterobject*)cnter)->default_value = new_default;
+  return 1;
+}
+
+double
+NlpCounter_GetDefault(PyObject *cnter)
+{
+  return ((cnterobject*)cnter)->default_value;
+}
+
 
 /****************/
 
@@ -800,6 +813,8 @@ initnlp(void)
 	NlpCounter_API[2] = (void *)NlpCounter_LogNormalize;
 	NlpCounter_API[3] = (void *)NlpCounter_XGetItem;
 	NlpCounter_API[4] = (void *)NlpCounter_XGetDouble;
+	NlpCounter_API[5] = (void *)NlpCounter_SetDefault;
+	NlpCounter_API[6] = (void *)NlpCounter_GetDefault;
 
 	c_api_object = PyCObject_FromVoidPtr((void *)NlpCounter_API, NULL);
 

@@ -8,6 +8,7 @@
 
 // NLP C module
 #include "nlp.h"
+#include "math.h"
 
 static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
   PyObject *features, *weights, *labels;
@@ -64,6 +65,9 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
 	  return NULL;
 	}
   }
+
+  // log_probs.default = float("-inf")
+  NlpCounter_SetDefault(log_probs, log(0.0));
 
   // log_probs.log_normalize()
   if (!NlpCounter_LogNormalize(log_probs)) {
