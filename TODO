@@ -4,9 +4,11 @@ Near-horizon goals (loosely pulled from DESIGN, but more pragmatic, not in any p
 + Counter in-place scalar ops
 + HMM
 + Log-score HMM (current implementation underflows too much)
-- Higher-order hmm
+- Viterbi improvements
+  - Higher-order hmm
+  - Generalize to generic chain model (pull out viterbi decoding)
+  - Rewrite core viterbi in C
 - HMM optimizations (frozen counter to deal with arg max time? need some better way of profiling the counter type)
-- Generalize to generic chain model (pull out viterbi decoding)
 - Approximate decoding (beam search, probably do this after the generic chain model stuff)
 - MEMM implementation
 - Emission smoothing - maxent emission fallbacks
