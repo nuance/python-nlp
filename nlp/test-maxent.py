@@ -31,7 +31,7 @@ class MaximumEntropyClassifierTestToyProblem(unittest.TestCase):
 		self.classifier.train_with_features(self.training_data, sigma=1.0)
 		maxent_log_probs = self.classifier.get_log_probabilities(self.test_data[0][1])
 		self.assertAlmostEqual(exp(maxent_log_probs['cat']), 0.73, 2)
-		self.assertAlmostEqual(exp(maxent_log_probs['bear']), 1.0-0.73, 2)
+		self.assertAlmostEqual(exp(maxent_log_probs['bear']), 0.27, 2)
 		print exp(maxent_log_probs['cat'])
 		
 #		print "Weights: %s" % classifier.weights

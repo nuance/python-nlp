@@ -39,8 +39,13 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
 	PyObject *labelWeights = PyDict_GetItem(weights, label);
 
 	if (!labelWeights) {
-	  PyErr_SetString(PyExc_ValueError, "label weights missing a key");
-	  return NULL;
+	  labelWeights = NlpCounter_New();
+	  ok = PyDict_SetItem(weights, label, labelWeights);
+
+	  if (ok < 0) {
+		Py_DECREF(labelWeights);
+		return NULL;
+	  }
 	}
 
 	if (!NlpCounter_Check(labelWeights)) {
