@@ -276,6 +276,49 @@ cnter_max(cnterobject *dd)
 
 PyDoc_STRVAR(cnter_max_doc, "D.max() -> max of the items in D");
 
+static PyObject *
+cnter_inner_product(PyObject *dd, PyObject *other)
+{
+	Py_ssize_t i;
+	PyObject *key, *value;
+
+	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {
+	  PyErr_SetString(PyExc_ValueError, "Counter inner_product requires two counters"); 
+	  return NULL;
+	}
+
+	double ret = 0.0;
+
+	/* Walk through all the keys in other and add value * dd->default if they're not in dd */
+	i = 0;
+	while (PyDict_Next(other, &i, &key, &value)) {
+		int contains = PyDict_Contains(dd, key);
+
+		if (contains == 0) {
+		  ret += ((cnterobject*)dd)->default_value * PyFloat_AsDouble(value);
+		} 
+		else if (contains < 0) {
+		  return NULL;
+		}
+	}
+
+	i = 0;
+	while (PyDict_Next(dd, &i, &key, &value)) {
+	  PyObject *otherValue = PyDict_GetItem(other, key);
+
+	  if (otherValue != NULL) {
+		ret += PyFloat_AsDouble(PyDict_GetItem(other, key)) * PyFloat_AsDouble(value);
+	  }
+	  else {
+		ret += ((cnterobject*)other)->default_value * PyFloat_AsDouble(value);
+	  } 
+	}
+
+	return PyFloat_FromDouble(ret);;
+}
+
+PyDoc_STRVAR(cnter_inner_product_doc, "D.inner_product(O) -> inner product of D and O");
+
 #define SCALAR_OP(fn_name, OP) \
 static PyObject *\
 fn_name(cnterobject *cnter, PyObject *other)\
@@ -515,6 +558,7 @@ static PyMethodDef cnter_methods[] = {
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
 	 cnter_arg_max_doc},
 	{"max", (PyCFunction)cnter_max, METH_NOARGS, cnter_max_doc},
+	{"inner_product", (PyCFunction)cnter_inner_product, METH_O, cnter_inner_product_doc},
 	{NULL}
 };
 
