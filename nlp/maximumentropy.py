@@ -1,4 +1,3 @@
-import sys
 from math import exp
 
 # c modules
@@ -58,21 +57,23 @@ class MaxEntWeightFunction(Function):
 
 	last_vg_weights = None
 	last_vg = (None, None)
-	def value_and_gradient(self, weights, verbose=True):
+	def value_and_gradient(self, weights, verbose=False):
 		if weights == self.last_vg_weights:
 			return self.last_vg
 		objective = 0.0
 		gradient = CounterMap()
 
 		if verbose: print "Calculating log probabilities and objective..."
+
+		# log_prob
 		log_probs = list()
 		for pos, (label, features) in enumerate(self.labeled_extracted_features):
 			log_probs.append(get_log_probs(features, weights, self.labels))
 			assert abs(sum(exp(log_probs[pos][label]) for label in self.labels) - 1.0) < 0.0001, "Not a distribution: P[any | features] = %f" % (sum(exp(log_probs[pos][label]) for label in self.labels))
 
-		objective = -sum(log_probs[index][label] for (index, (label,_)) in enumerate(self.labeled_extracted_features))
+		objective = -sum(log_prob[label] for (log_prob, (label,_)) in zip(log_probs, self.labeled_extracted_features))
 
-		if verbose: print "Raw objective: %f" % objective
+		if True: print "Raw objective: %f" % objective
 
 		if verbose: print "Calculating expected counts..."
 
@@ -91,9 +92,12 @@ class MaxEntWeightFunction(Function):
 			for feature in self.features:
 				weight = weights[feature][label]
 				penalty += weight**2
-				gradient[label][feature] += (weight / (self.sigma**2))
+				if self.sigma:
+					gradient[label][feature] += (weight / (self.sigma**2))
 
-		penalty /= 2 * self.sigma**2
+
+		if self.sigma:
+			penalty /= 2 * self.sigma**2
 		objective += penalty
 		if verbose: print "Penalized objective: %f" % objective
 
@@ -123,7 +127,8 @@ class MaxEntWeightFunction(Function):
 				weight = weights[feature][label]
 				penalty += weight**2
 
-		penalty /= 2 * self.sigma**2
+		if self.sigma:
+			penalty /= 2 * self.sigma**2
 		objective += penalty
 		if verbose: print "Penalized objective: %f" % objective
 
@@ -149,9 +154,10 @@ class MaximumEntropyClassifier:
 			last_last_char = last_char
 			last_char = char
 
-	def train_with_features(self, labeled_features):
+	def train_with_features(self, labeled_features, sigma=None):
 		print "Optimizing weights..."
 		weight_function = MaxEntWeightFunction(labeled_features, self.labels, self.features)
+		if sigma is not None: weight_function.sigma = sigma
 
 		print "Building initial dictionary..."
 		initial_weights = CounterMap()
@@ -221,31 +227,8 @@ def real_problem():
 def cnter(l):
 	return Counter(izip(l, repeat(1.0, len(l))))
 
-def toy_problem():
-	training_data = (('cat', cnter(('fuzzy', 'claws', 'small'))),
-					 ('bear', cnter(('fuzzy', 'claws', 'big'))),
-					 ('cat', cnter(('claws', 'medium'))))
-	test_data = (('cat', cnter(('claws', 'small'))),
-				 ('bear', cnter(('fuzzy',))))
-
-	classifier = MaximumEntropyClassifier()
-	classifier.labels = set(('cat', 'bear'))
-	classifier.features = set(('fuzzy', 'claws', 'small', 'medium', 'big'))
-	classifier.train_with_features(training_data)
-
-	print "Weights: %s" % classifier.weights
-	for test_datum in test_data:
-		log_probs = classifier.get_log_probabilities(test_datum[1])
-		for label in ['cat', 'bear']:
-			print "P[%s | %s] = %f" % (label, test_datum[1], exp(log_probs[label]))
-
-	return classifier
-
 if __name__ == "__main__":
  	print "*** Maximum Entropy Classifier ***"
 
-	if 'toy' in sys.argv:
-		toy_problem()
-	else:
-		real_problem()
+	real_problem()
 
