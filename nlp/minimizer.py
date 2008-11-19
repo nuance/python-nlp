@@ -115,6 +115,6 @@ class Minimizer:
 			point = next_point
 			iteration += 1
 
-			print "*** Minimizer finished iteration %d with objective %f" % (iteration, next_value)
+			if verbose: print "*** Minimizer finished iteration %d with objective %f" % (iteration, next_value)
 
 		return point

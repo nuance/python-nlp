@@ -73,7 +73,7 @@ class MaxEntWeightFunction(Function):
 
 		objective = -sum(log_prob[label] for (log_prob, (label,_)) in zip(log_probs, self.labeled_extracted_features))
 
-		if True: print "Raw objective: %f" % objective
+		if verbose: print "Raw objective: %f" % objective
 
 		if verbose: print "Calculating expected counts..."
 
@@ -87,15 +87,14 @@ class MaxEntWeightFunction(Function):
 		
 		# Apply a penalty (e.g. smooth the results)
 		penalty = 0.0
+		ppenalty = 0.0
 
-		for label in self.labels:
-			for feature in self.features:
-				weight = weights[feature][label]
+		for label, feature_weights in gradient.iteritems():
+			for feature in feature_weights:
+				weight = weights[label][feature]
 				penalty += weight**2
 				if self.sigma:
 					gradient[label][feature] += (weight / (self.sigma**2))
-
-
 		if self.sigma:
 			penalty /= 2 * self.sigma**2
 		objective += penalty
@@ -120,12 +119,7 @@ class MaxEntWeightFunction(Function):
 		if verbose: print "Applying penalty"
 		
 		# Apply a penalty (e.g. smooth the results)
-		penalty = 0.0
-
-		for label in self.labels:
-			for feature in self.features:
-				weight = weights[feature][label]
-				penalty += weight**2
+		penalty = sum(sum(weight**2 for weight in feature_weights.itervalues()) for feature_weights in weights.itervalues())
 
 		if self.sigma:
 			penalty /= 2 * self.sigma**2
@@ -157,7 +151,7 @@ class MaximumEntropyClassifier:
 	def train_with_features(self, labeled_features, sigma=None):
 		print "Optimizing weights..."
 		weight_function = MaxEntWeightFunction(labeled_features, self.labels, self.features)
-		if sigma is not None: weight_function.sigma = sigma
+		weight_function.sigma = sigma
 
 		print "Building initial dictionary..."
 		initial_weights = CounterMap()
