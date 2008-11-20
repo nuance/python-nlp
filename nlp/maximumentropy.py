@@ -86,19 +86,18 @@ class MaxEntWeightFunction(Function):
 		if verbose: print "Applying penalty"
 		
 		# Apply a penalty (e.g. smooth the results)
-		penalty = 0.0
-		ppenalty = 0.0
-
-		for label, feature_weights in gradient.iteritems():
-			for feature in feature_weights:
-				weight = weights[label][feature]
-				penalty += weight**2
-				if self.sigma:
-					gradient[label][feature] += (weight / (self.sigma**2))
 		if self.sigma:
+			penalty = 0.0
+
+			for label, feature_weights in gradient.iteritems():
+				for feature in feature_weights:
+					weight = weights[label][feature]
+					penalty += weight**2
+					gradient[label][feature] += (weight / (self.sigma**2))
+
 			penalty /= 2 * self.sigma**2
-		objective += penalty
-		if verbose: print "Penalized objective: %f" % objective
+			objective += penalty
+			if verbose: print "Penalized objective: %f" % objective
 
 		self.last_vg_weights = weights
 		self.last_vg = (objective, gradient)
@@ -117,14 +116,14 @@ class MaxEntWeightFunction(Function):
 		if verbose: print "Raw objective: %f" % objective
 
 		if verbose: print "Applying penalty"
-		
-		# Apply a penalty (e.g. smooth the results)
-		penalty = sum(sum(weight**2 for weight in feature_weights.itervalues()) for feature_weights in weights.itervalues())
 
 		if self.sigma:
+			# Apply a penalty (e.g. smooth the results)
+			penalty = sum(sum(weight**2 for weight in feature_weights.itervalues()) for feature_weights in weights.itervalues())
 			penalty /= 2 * self.sigma**2
-		objective += penalty
-		if verbose: print "Penalized objective: %f" % objective
+			objective += penalty
+
+			if verbose: print "Penalized objective: %f" % objective
 
 		return objective
 
