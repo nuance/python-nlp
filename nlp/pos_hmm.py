@@ -24,9 +24,9 @@ def merge_stream(stream):
 
 	return zip(tag_stream, sentences)
 
-def pos_problem(args):
+def pos_problem(arguments, fallback_model=None):
 	dataset_size = None
-	if len(args) > 0: dataset_size = int(args[0])
+	if len(arguments) == 2: dataset_size = int(arguments[1])
 	# Load the dataset
 	print "Loading dataset"
 	start = time()
@@ -51,7 +51,7 @@ def pos_problem(args):
 	print "Training"
 	start = time()
 	pos_tagger = HiddenMarkovModel()
-	pos_tagger.train(training_stream[1:-2], fallback_model=MaximumEntropyClassifier)
+	pos_tagger.train(training_stream[1:-2], fallback_model=fallback_model)
 	stop = time()
 	print "Training: %f" % (stop-start)
 
@@ -86,4 +86,4 @@ def pos_problem(args):
 	print "%d correct (%.3f%% of %d)" % (num_correct, 100.0 * float(num_correct) / float(num_correct + num_incorrect), num_correct + num_incorrect)
 
 if __name__ == "__main__":
-	pos_problem(sys.argv[1:])
+	pos_problem(sys.argv, fallback_model=MaximumEntropyClassifier)
