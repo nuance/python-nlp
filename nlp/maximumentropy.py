@@ -147,7 +147,7 @@ class MaximumEntropyClassifier:
 			last_last_char = last_char
 			last_char = char
 
-	def train_with_features(self, labeled_features, sigma=None):
+	def train_with_features(self, labeled_features, sigma=None, quiet=False):
 		print "Optimizing weights..."
 		weight_function = MaxEntWeightFunction(labeled_features, self.labels, self.features)
 		weight_function.sigma = sigma
@@ -158,7 +158,7 @@ class MaximumEntropyClassifier:
 		print "Labels: %s" % self.labels
 
 		print "Minimizing..."
-		self.weights = Minimizer.minimize(weight_function, initial_weights)
+		self.weights = Minimizer.minimize(weight_function, initial_weights, quiet=quiet)
 
 	def train(self, labeled_data):
 		self.labels, self.features = set(), set()

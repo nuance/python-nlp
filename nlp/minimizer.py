@@ -71,7 +71,7 @@ class Minimizer:
 		return left
 
 	@classmethod
-	def minimize(cls, function, start_map, verbose=False):
+	def minimize(cls, function, start_map, verbose=False, quiet=False):
 		converged = False
 		iteration = 0
 		point = start_map
@@ -115,6 +115,6 @@ class Minimizer:
 			point = next_point
 			iteration += 1
 
-			if verbose: print "*** Minimizer finished iteration %d with objective %f" % (iteration, next_value)
+			if not quiet: print "*** Minimizer finished iteration %d with objective %f" % (iteration, next_value)
 
 		return point

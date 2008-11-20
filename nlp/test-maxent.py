@@ -22,13 +22,13 @@ class MaximumEntropyClassifierTestToyProblem(unittest.TestCase):
 		self.classifier.features = set(chain(features.iterkeys() for _, features in self.training_data))
 
 	def test_unsmoothed(self):
-		self.classifier.train_with_features(self.training_data, sigma=0.0)
+		self.classifier.train_with_features(self.training_data, sigma=0.0, quiet=True)
 		maxent_log_probs = self.classifier.get_log_probabilities(self.test_data[0][1])
 		self.assertAlmostEqual(exp(maxent_log_probs['cat']), 1.0, 2)
 		self.assertAlmostEqual(exp(maxent_log_probs['bear']), 0.0, 2)
 
 	def test_smoothed(self):
-		self.classifier.train_with_features(self.training_data, sigma=1.0)
+		self.classifier.train_with_features(self.training_data, sigma=1.0, quiet=True)
 		maxent_log_probs = self.classifier.get_log_probabilities(self.test_data[0][1])
 		self.assertAlmostEqual(exp(maxent_log_probs['cat']), 0.73, 2)
 		self.assertAlmostEqual(exp(maxent_log_probs['bear']), 0.27, 2)
