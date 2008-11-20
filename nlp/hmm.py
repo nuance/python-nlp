@@ -2,7 +2,7 @@
 
 import sys
 import random
-from itertools import izip
+from itertools import izip, islice
 from math import log, exp
 
 from countermap import CounterMap
@@ -31,7 +31,7 @@ class HiddenMarkovModel:
 
 		return padding
 
-	def train(self, labeled_sequence, fallback_model=None):
+	def train(self, labeled_sequence, fallback_model=None, fallback_training_limit=None):
 		label_counts = Counter()
 		# Currently this assumes the HMM is multinomial
 		last_label = None
@@ -66,7 +66,13 @@ class HiddenMarkovModel:
 		# Train the fallback model on the label-emission pairs
 		if fallback_model:
 			self.fallback_model = fallback_model()
-			self.fallback_model.train((label, emission) for label, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+
+			emissions_training_pairs = ((label, emission) for label, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+			
+			if fallback_training_limit:
+				emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
+
+			self.fallback_model.train(emissions_training_pairs)
 		else:
 			self.fallback_model = None
 

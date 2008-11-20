@@ -24,9 +24,10 @@ def merge_stream(stream):
 
 	return zip(tag_stream, sentences)
 
-def pos_problem(arguments, fallback_model=None):
+def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	dataset_size = None
-	if len(arguments) == 2: dataset_size = int(arguments[1])
+	if len(arguments) >= 2: dataset_size = int(arguments[1])
+	if len(arguments) >= 3: fallback_training_limit = int(arguments[2])
 	# Load the dataset
 	print "Loading dataset"
 	start = time()
@@ -51,7 +52,7 @@ def pos_problem(arguments, fallback_model=None):
 	print "Training"
 	start = time()
 	pos_tagger = HiddenMarkovModel()
-	pos_tagger.train(training_stream[1:-2], fallback_model=fallback_model)
+	pos_tagger.train(training_stream[1:-2], fallback_model, fallback_training_limit=fallback_training_limit)
 	stop = time()
 	print "Training: %f" % (stop-start)
 
