@@ -155,7 +155,7 @@ class MaximumEntropyClassifier:
 		print "Building initial dictionary..."
 		initial_weights = CounterMap()
 
-		print "Labels: %s" % self.labels
+		print "Labels: %d for %d features" % (len(self.labels), len(labeled_features))
 
 		print "Minimizing..."
 		self.weights = Minimizer.minimize(weight_function, initial_weights, quiet=quiet)

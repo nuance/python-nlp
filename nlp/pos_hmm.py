@@ -52,7 +52,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	print "Training"
 	start = time()
 	pos_tagger = HiddenMarkovModel()
-	pos_tagger.train(training_stream[1:-2], fallback_model, fallback_training_limit=fallback_training_limit)
+	pos_tagger.train(training_stream[1:-2], fallback_model=fallback_model, fallback_training_limit=fallback_training_limit)
 	stop = time()
 	print "Training: %f" % (stop-start)
 
@@ -79,7 +79,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 
 			debug_label = lambda: pos_tagger.label(emissions, debug=True)
 			debug_score = lambda labels: pos_tagger.score(zip(labels, emissions), debug=True)
-			assert guessed_score >= correct_score or len(emissions) > 10, "Decoder sub-optimality (%f for guess, %f for correct)\n%s vs. %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label(), correct_labels)
+			assert guessed_score >= correct_score or len(emissions) > 12, "Decoder sub-optimality (%f for guess, %f for correct)\n%s vs. %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label(), correct_labels)
 
 	stop = time()
 	print "Testing: %f" % (stop-start)
@@ -87,4 +87,4 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	print "%d correct (%.3f%% of %d)" % (num_correct, 100.0 * float(num_correct) / float(num_correct + num_incorrect), num_correct + num_incorrect)
 
 if __name__ == "__main__":
-	pos_problem(sys.argv, fallback_model=MaximumEntropyClassifier)
+	pos_problem(sys.argv, fallback_model=NaiveBayesClassifier)

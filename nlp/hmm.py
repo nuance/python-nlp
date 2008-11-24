@@ -17,12 +17,17 @@ class HiddenMarkovModel:
 	transition = CounterMap()
 	reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
+	fallback_emissions_model = None
+	fallback_transition = None
+	fallback_reverse_transition = None
+
 	# Multinomial distribution over emissions given label
 	emission = CounterMap()
 	# p(label | emission)
 	label_emissions = CounterMap()
 
-	def __pad_sequence(self, sequence, pairs=False):
+	@classmethod
+	def __pad_sequence(cls, sequence, pairs=False):
 		if pairs: padding = [(START_LABEL, START_LABEL),]
 		else: padding = [START_LABEL,]
 		padding.extend(sequence)
@@ -31,54 +36,91 @@ class HiddenMarkovModel:
 
 		return padding
 
-	def train(self, labeled_sequence, fallback_model=None, fallback_training_limit=None):
-		label_counts = Counter()
-		# Currently this assumes the HMM is multinomial
-		last_label = None
+	@classmethod
+	def _extend_labels(cls, sequence, label_history_size):
+		'''
+		>>> foo = HiddenMarkovModel()
+		>>> foo._extend_labels((('A', 3), ('B', 4), ('C', 5)), 1)
+		[(('A',), 3), (('B',), 4), (('C',), 5)]
+		>>> foo._extend_labels((('A', 3), ('B', 4), ('C', 5)), 2)
+		[(('A', '<START>::A'), 3), (('B', 'A::B'), 4), (('C', 'B::C'), 5)]
+		'''
+		full_labeled_sequence = []
+		last_labels = [START_LABEL for _ in xrange(label_history_size)]
+
+		for label, emission in sequence:
+			last_labels.append(label)
+			last_labels.pop(0)
+
+			if label != START_LABEL and label != STOP_LABEL:
+				all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size])
+							  for length in xrange(label_history_size))
+				full_labeled_sequence.append((tuple(all_labels), emission))
+			else:
+				history = list()
+				history.append(label)
+				full_labeled_sequence.append((history, emission))
+
+		return full_labeled_sequence
+
+	def train(self, labeled_sequence, label_history_size=2, fallback_model=None, fallback_training_limit=None):
+		label_counts = [Counter() for _ in xrange(label_history_size)]
+		last_label = [None for _ in xrange(label_history_size)]
+		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
+		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
 
 		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
+		labeled_sequence = self._extend_labels(labeled_sequence, label_history_size)
 
 		# Transitions
-		for label, emission in labeled_sequence:
-			label_counts[label] += 1.0
-			self.emission[label][emission] += 1.0
-			self.label_emissions[emission][label] += 1.0
-			if last_label:
-				self.transition[last_label][label] += 1.0
-			last_label = label
+		for label_histories, emission in labeled_sequence:
+			# Only train emissions model on the shortest label (for now)
+			emission_label = label_histories[0]
+			self.emission[emission_label][emission] += 1.0
+			self.label_emissions[emission][emission_label] += 1.0
 
+			for history, label in enumerate(label_histories):
+				label_counts[history][label] += 1.0
+				if last_label:
+					self.fallback_transition[history][last_label[history]][label] += 1.0
+				last_label[history] = label
+
+		for transition in self.fallback_transition:	transition.normalize()
 		self.label_emissions.normalize()
-		self.transition.normalize()
 		self.emission.normalize()
 		self.labels = self.emission.keys()
 
 		# Convert to log score counters
+		for transition in self.fallback_transition: transition.log()
 		self.label_emissions.log()
-		self.transition.log()
 		self.emission.log()
 
 		# Construct reverse transition probabilities
-		for label, counter in self.transition.iteritems():
-			for sublabel, score in counter.iteritems():
-				self.reverse_transition[sublabel][label] = score
-				self.reverse_transition[sublabel].default = float("-inf")
+		for transition, reverse_transition in izip(self.fallback_transition, self.fallback_reverse_transition):
+			for label, counter in transition.iteritems():
+				for sublabel, score in counter.iteritems():
+					reverse_transition[sublabel][label] = score
+					reverse_transition[sublabel].default = float("-inf")
+
+		self.transition = self.fallback_transition[0]
+		self.reverse_transition = self.fallback_reverse_transition[0]
+
+		print "Transition labels: %r" % [(label, len(transition)) for label, transition in self.transition.iteritems()]
 
 		# Train the fallback model on the label-emission pairs
 		if fallback_model:
-			self.fallback_model = fallback_model()
+			self.fallback_emissions_model = fallback_model()
 
-			emissions_training_pairs = ((label, emission) for label, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
-			
+			emissions_training_pairs = ((label_history[0], emission) for label_history, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+
 			if fallback_training_limit:
 				emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
 
-			self.fallback_model.train(emissions_training_pairs)
-		else:
-			self.fallback_model = None
+			self.fallback_emissions_model.train(emissions_training_pairs)
 
 	def fallback_probs(self, emission):
-		if self.fallback_model:
-			return self.fallback_model.label_distribution(emission)
+		if self.fallback_emissions_model:
+			return self.fallback_emissions_model.label_distribution(emission)
 
 		fallback = Counter()
 		uniform = log(1.0 / len(self.labels))
@@ -122,7 +164,7 @@ class HiddenMarkovModel:
 		if debug: print "LABEL :: %s" % emission_sequence
 		
 		f = debug
-		debug=False
+		debug = False
 
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = self.__pad_sequence(emission_sequence)
