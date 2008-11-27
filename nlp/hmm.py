@@ -7,6 +7,7 @@ from math import log, exp
 
 from countermap import CounterMap
 from nlp import counter as Counter
+from utilities import permutations
 
 START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
@@ -81,9 +82,12 @@ class HiddenMarkovModel:
 
 			for history, label in enumerate(label_histories):
 				label_counts[history][label] += 1.0
-				if last_label:
+				if last_label[history]:
 					self.fallback_transition[history][last_label[history]][label] += 1.0
+					raise "self.fallback_transition[%r][%r][%r]: %r" % (history, last_label[history], label, self.fallback_transition[history][last_label[history]][label])
 				last_label[history] = label
+
+		print self.fallback_transition[0]
 
 		for transition in self.fallback_transition:	transition.normalize()
 		self.label_emissions.normalize()
@@ -102,10 +106,35 @@ class HiddenMarkovModel:
 					reverse_transition[sublabel][label] = score
 					reverse_transition[sublabel].default = float("-inf")
 
-		self.transition = self.fallback_transition[0]
-		self.reverse_transition = self.fallback_reverse_transition[0]
+		self.transition = CounterMap()
+		linear_smoothing_weights = [1.0].extend(0.0 for _ in xrange(label_history_size-1))		
 
-		print "Transition labels: %r" % [(label, len(transition)) for label, transition in self.transition.iteritems()]
+		# Smooth transitions using fallback data
+		all_label_histories = set(permutations(self.labels, label_history_size))
+		for label_history in all_label_histories:
+			histories = [history for history in (label_history[i:] for i in xrange(label_history_size))]
+			# >>> label_history = ('WDT', 'RBR')
+			# histories = [('WDT', 'RBR'), ('RBR',)]
+
+			history_strings = ['::'.join(history) for history in histories]
+			print history_strings
+			history_scores = [self.fallback_transition[len(history)-1][history_string] for history, history_string in izip(histories, history_strings)]
+			print history_scores
+
+			self.transition[history_strings[0]] = sum(smoothing * history_score for smoothing, history_score in izip(linear_smoothing_weights, history_scores))
+
+			print self.transition[history_strings[0]]
+
+			assert False
+
+		# Build reverse transition from estimated transitions
+		self.reverse_transition = CounterMap()
+		for label, counter in self.transition.iteritems():
+			for sublabel, score in counter.iteritems():
+				self.reverse_transition[sublabel][label] = score
+				self.reverse_transition[sublabel].default = float("-inf")
+
+		print "Transition labels: %r" % [len(fallback_transition) for fallback_transition in self.fallback_transition]
 
 		# Train the fallback model on the label-emission pairs
 		if fallback_model:
@@ -118,7 +147,7 @@ class HiddenMarkovModel:
 
 			self.fallback_emissions_model.train(emissions_training_pairs)
 
-	def fallback_probs(self, emission):
+	def emission_fallback_probs(self, emission):
 		if self.fallback_emissions_model:
 			return self.fallback_emissions_model.label_distribution(emission)
 
@@ -136,14 +165,14 @@ class HiddenMarkovModel:
 		if debug: print "*** SCORE (%s) ***" % labeled_sequence
 
 		if START_LABEL in self.label_emissions[START_LABEL]: score += self.label_emissions[START_LABEL][START_LABEL]
-		else: score += self.fallback_probs(START_LABEL)[START_LABEL]
+		else: score += self.emission_fallback_probs(START_LABEL)[START_LABEL]
 
 		for pos, (label, emission) in enumerate(labeled_sequence):
 			if emission in self.label_emissions:
 				score += self.label_emissions[emission][label]
 			else:
 				if debug: print "FALLBACK!"
-				score += self.fallback_probs(emission)[label]
+				score += self.emission_fallback_probs(emission)[label]
 			if debug: print " ++ EMISSION: %f" % (score-last_score)
 			score += self.transition[last_label][label]
 			if debug: print " ++ TRANSITION: %f" % (self.transition[last_label][label])
@@ -154,7 +183,7 @@ class HiddenMarkovModel:
 
 		score += self.transition[last_label][STOP_LABEL]
 		if STOP_LABEL in self.label_emissions[STOP_LABEL]: score += self.label_emissions[STOP_LABEL][STOP_LABEL]
-		else: score += self.fallback_probs(STOP_LABEL)[STOP_LABEL]
+		else: score += self.emission_fallback_probs(STOP_LABEL)[STOP_LABEL]
 
 		if debug: print "*** SCORE => %f ***" % score
 		
@@ -207,11 +236,11 @@ class HiddenMarkovModel:
 
 			# Emission probs (prob. of emitting `emission`)
 			if self.label_emissions.get(emission, None): curr_scores += self.label_emissions[emission]
-			else: curr_scores += self.fallback_probs(emission)
+			else: curr_scores += self.emission_fallback_probs(emission)
 			
 			if debug:
 				if self.label_emissions[emission]: print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
-				else: print " ++ EMISSIONS FALLBACK :: %f" % self.fallback_probs(emission).items()[0][1]#[(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
+				else: print " ++ EMISSIONS FALLBACK :: %f" % self.emission_fallback_probs(emission).items()[0][1]#[(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
 
 			if debug: print "=> EXITING WITH SCORES :: %s" % [item for item in curr_scores.iteritems() if item[1] != float("-inf")]
 			scores.append(curr_scores)
