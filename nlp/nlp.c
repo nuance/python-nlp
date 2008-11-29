@@ -356,8 +356,8 @@ fn_name(cnterobject *cnter, PyObject *other)\
   return (PyObject*)ret_cnter;\
 }
 
-#define CNTER_OP(FN_NAME, FN_SCALAR_NAME, OP) \
-SCALAR_OP(FN_SCALAR_NAME, OP)\
+#define CNTER_OP(FN_NAME, OP) \
+SCALAR_OP(FN_NAME ## _scalar, OP)\
 \
 static PyObject *\
 FN_NAME(PyObject *dd, PyObject *other)\
@@ -366,7 +366,7 @@ FN_NAME(PyObject *dd, PyObject *other)\
   PyObject *key, *value;\
 \
   if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))\
-		return FN_SCALAR_NAME((cnterobject*)dd, other);\
+		return FN_NAME ## _scalar((cnterobject*)dd, other);\
 \
   if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
     PyErr_SetString(PyExc_ValueError, "Counter " #OP " requires two counters or a counter and a scalar");\
@@ -463,8 +463,8 @@ FN_NAME(cnterobject *dd, PyObject *other)\
   return (PyObject*)dd;\
 }
 
-#define CNTER_IOP(FN_NAME, FN_SCALAR_NAME, OP) \
-SCALAR_IOP(FN_SCALAR_NAME, OP)\
+#define CNTER_IOP(FN_NAME, OP) \
+SCALAR_IOP(FN_NAME ## _scalar, OP)\
 \
 static PyObject *\
 FN_NAME(PyObject *dd, PyObject *other)\
@@ -473,7 +473,7 @@ FN_NAME(PyObject *dd, PyObject *other)\
 	PyObject *key, *value;\
 \
 	if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))\
-	  return FN_SCALAR_NAME((cnterobject*)dd, other);\
+	  return FN_NAME ## _scalar((cnterobject*)dd, other);\
 \
 	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
 	  PyErr_SetString(PyExc_ValueError, "Counter in-place " #OP " requires two counters or a counter and a scalar"); \
@@ -522,21 +522,21 @@ FN_NAME(PyObject *dd, PyObject *other)\
 	return dd;\
 }
 
-CNTER_OP(cnter_mul, cnter_mul_scalar, *)
+CNTER_OP(cnter_mul, *)
 
-CNTER_OP(cnter_div, cnter_div_scalar, /)
+CNTER_OP(cnter_div, /)
 
-CNTER_OP(cnter_add, cnter_add_scalar, +)
+CNTER_OP(cnter_add, +)
 
-CNTER_OP(cnter_sub, cnter_sub_scalar, -)
+CNTER_OP(cnter_sub, -)
 
-CNTER_IOP(cnter_imul, cnter_imul_scalar, *)
+CNTER_IOP(cnter_imul, *)
 
-CNTER_IOP(cnter_idiv, cnter_idiv_scalar, /)
+CNTER_IOP(cnter_idiv, /)
 
-CNTER_IOP(cnter_iadd, cnter_iadd_scalar, +)
+CNTER_IOP(cnter_iadd, +)
 
-CNTER_IOP(cnter_isub, cnter_isub_scalar, -)
+CNTER_IOP(cnter_isub, -)
 
 static PyMethodDef cnter_methods[] = {
 	{"__missing__", (PyCFunction)cnter_missing, METH_O,
