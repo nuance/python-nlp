@@ -54,19 +54,16 @@ class HiddenMarkovModel:
 			last_labels.pop(0)
 
 			if label != START_LABEL and label != STOP_LABEL:
-				all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size])
+				all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size-1])
 							  for length in xrange(label_history_size))
-				full_labeled_sequence.append((tuple(all_labels), emission))
+				full_labeled_sequence.append((label, tuple(all_labels), emission))
 			else:
-				history = list()
-				history.append(label)
-				full_labeled_sequence.append((history, emission))
+				full_labeled_sequence.append((label, ['',], emission))
 
 		return full_labeled_sequence
 
 	def train(self, labeled_sequence, label_history_size=2, fallback_model=None, fallback_training_limit=None):
 		label_counts = [Counter() for _ in xrange(label_history_size)]
-		last_label = [None for _ in xrange(label_history_size)]
 		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
 
@@ -74,20 +71,14 @@ class HiddenMarkovModel:
 		labeled_sequence = self._extend_labels(labeled_sequence, label_history_size)
 
 		# Transitions
-		for label_histories, emission in labeled_sequence:
+		for label, label_histories, emission in labeled_sequence:
 			# Only train emissions model on the shortest label (for now)
-			emission_label = label_histories[0]
-			self.emission[emission_label][emission] += 1.0
-			self.label_emissions[emission][emission_label] += 1.0
+			self.emission[label][emission] += 1.0
+			self.label_emissions[emission][label] += 1.0
 
-			for history, label in enumerate(label_histories):
-				label_counts[history][label] += 1.0
-				if last_label[history]:
-					self.fallback_transition[history][last_label[history]][label] += 1.0
-					raise "self.fallback_transition[%r][%r][%r]: %r" % (history, last_label[history], label, self.fallback_transition[history][last_label[history]][label])
-				last_label[history] = label
-
-		print self.fallback_transition[0]
+			for history_size, label_history in enumerate(label_histories):
+				label_counts[history_size][label_history] += 1.0
+				self.fallback_transition[history_size][label_history][label] += 1.0
 
 		for transition in self.fallback_transition:	transition.normalize()
 		self.label_emissions.normalize()
