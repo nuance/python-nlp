@@ -369,7 +369,7 @@ FN_NAME(PyObject *dd, PyObject *other)\
 		return FN_SCALAR_NAME((cnterobject*)dd, other);\
 \
   if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
-    PyErr_SetString(PyExc_ValueError, "Counter OP requires two counters or a counter and a scalar");\
+    PyErr_SetString(PyExc_ValueError, "Counter " #OP " requires two counters or a counter and a scalar");\
     return NULL;\
   }\
 \
@@ -476,7 +476,7 @@ FN_NAME(PyObject *dd, PyObject *other)\
 	  return FN_SCALAR_NAME((cnterobject*)dd, other);\
 \
 	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
-	  PyErr_SetString(PyExc_ValueError, "Counter in-place OP requires two counters or a counter and a scalar"); \
+	  PyErr_SetString(PyExc_ValueError, "Counter in-place " #OP " requires two counters or a counter and a scalar"); \
 	  return NULL;\
 	}\
 \
