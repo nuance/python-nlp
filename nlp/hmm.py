@@ -62,15 +62,27 @@ class HiddenMarkovModel:
 
 		return full_labeled_sequence
 
+	@classmethod
+	def __reverse_transition(cls, transition):
+		reverse_transition = CounterMap()
+		# Construct reverse transition probabilities
+		for label, counter in transition.iteritems():
+			for sublabel, score in counter.iteritems():
+				reverse_transition[sublabel][label] = score
+				reverse_transition[sublabel].default = float("-inf")
+
+		return reverse_transition
+
 	def train(self, labeled_sequence, label_history_size=2, fallback_model=None, fallback_training_limit=None):
 		label_counts = [Counter() for _ in xrange(label_history_size)]
 		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
 
+		# FIXME: These should both be generators, with the second call changed to list(gen seq)
 		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
 		labeled_sequence = self._extend_labels(labeled_sequence, label_history_size)
 
-		# Transitions
+		# Load emission and transition counters from the raw data
 		for label, label_histories, emission in labeled_sequence:
 			# Only train emissions model on the shortest label (for now)
 			self.emission[label][emission] += 1.0
@@ -80,58 +92,46 @@ class HiddenMarkovModel:
 				label_counts[history_size][label_history] += 1.0
 				self.fallback_transition[history_size][label_history][label] += 1.0
 
+#		print '\n'.join(["%d: %r" % (pos, [(key, len(values)) for key, values in ft.iteritems()]) for pos, ft in enumerate(self.fallback_transition)])
+
+		# Make the counters distributions
 		for transition in self.fallback_transition:	transition.normalize()
 		self.label_emissions.normalize()
 		self.emission.normalize()
 		self.labels = self.emission.keys()
 
-		# Convert to log score counters
-		for transition in self.fallback_transition: transition.log()
-		self.label_emissions.log()
-		self.emission.log()
-
-		# Construct reverse transition probabilities
-		for transition, reverse_transition in izip(self.fallback_transition, self.fallback_reverse_transition):
-			for label, counter in transition.iteritems():
-				for sublabel, score in counter.iteritems():
-					reverse_transition[sublabel][label] = score
-					reverse_transition[sublabel].default = float("-inf")
-
-		self.transition = CounterMap()
-		linear_smoothing_weights = [1.0].extend(0.0 for _ in xrange(label_history_size-1))		
-
 		# Smooth transitions using fallback data
-		all_label_histories = set(permutations(self.labels, label_history_size))
+		self.transition = CounterMap()
+		linear_smoothing_weights = [1.0 - 0.1 * (label_history_size-1)]
+		linear_smoothing_weights.extend(0.1 for _ in xrange(label_history_size-1))
+
+		# This is super inefficient - it should be caching smoothings involving the less-specific counters
+		# e.g. smoothed['NN']['CD'] = cnter['NN']['CD'] * \lambda * smoothed['NN'] and so on
+		all_label_histories = set(permutations(self.labels, label_history_size-1))
 		for label_history in all_label_histories:
 			histories = [history for history in (label_history[i:] for i in xrange(label_history_size))]
 			# >>> label_history = ('WDT', 'RBR')
-			# histories = [('WDT', 'RBR'), ('RBR',)]
+			# histories = [('WDT', 'RBR'), ('RBR')]
 
 			history_strings = ['::'.join(history) for history in histories]
-			print history_strings
-			history_scores = [self.fallback_transition[len(history)-1][history_string] for history, history_string in izip(histories, history_strings)]
-			print history_scores
+			history_scores = [self.fallback_transition[len(history)][history_string] for history, history_string in izip(histories, history_strings)]
 
-			self.transition[history_strings[0]] = sum(smoothing * history_score for smoothing, history_score in izip(linear_smoothing_weights, history_scores))
+			self.transition[history_strings[0]] = Counter()
+			for smoothing, history_score in izip(linear_smoothing_weights, history_scores):
+				self.transition[history_strings[0]] += history_score * smoothing
 
-			print self.transition[history_strings[0]]
+		# Convert to log score counters
+		self.transition.log()
+		self.label_emissions.log()
+		self.emission.log()
 
-			assert False
-
-		# Build reverse transition from estimated transitions
-		self.reverse_transition = CounterMap()
-		for label, counter in self.transition.iteritems():
-			for sublabel, score in counter.iteritems():
-				self.reverse_transition[sublabel][label] = score
-				self.reverse_transition[sublabel].default = float("-inf")
-
-		print "Transition labels: %r" % [len(fallback_transition) for fallback_transition in self.fallback_transition]
+		self.reverse_transition = self.__reverse_transition(self.transition)
 
 		# Train the fallback model on the label-emission pairs
 		if fallback_model:
 			self.fallback_emissions_model = fallback_model()
 
-			emissions_training_pairs = ((label_history[0], emission) for label_history, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+			emissions_training_pairs = ((label, emission) for label, _, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
 
 			if fallback_training_limit:
 				emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
