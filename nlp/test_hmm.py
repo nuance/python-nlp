@@ -1,31 +1,31 @@
 from math import log
+import unittest
 
 from hmm import HiddenMarkovModel, START_LABEL, STOP_LABEL
 
-def test_problem():
-	defaults = {START_LABEL : float("-inf"), STOP_LABEL : float("-inf")}
+class HMMTest(unittest.TestCase):
 
-	def set_defaults(model):
+	def set_defaults(self, model):
 		for state in model.labels:
 			model.transition[state].default = float("-inf")
 			model.reverse_transition[state].default = float("-inf")
 			model.emission[state].default = float("-inf")
 			model.label_emissions[state].default = float("-inf")
 
-	def uniform_transitions(model):
+	def uniform_transitions(self, model):
 		for start in ('A', 'B'):
-			model.transition[start].update(defaults)
-			model.reverse_transition[start].update(defaults)
+			model.transition[start].update(self.defaults)
+			model.reverse_transition[start].update(self.defaults)
 			for finish in ('A', 'B', STOP_LABEL):
 				model.transition[start][finish] = log(1.0 / 3.0)
 				model.reverse_transition[finish][start] = log(1.0 / 3.0)
 			model.transition[START_LABEL][start] = log(0.5)
 			model.reverse_transition[start][START_LABEL] = log(0.5)
 
-	def self_biased_transitions(model):
+	def biased_transitions(self, model):
 		for start in ('A', 'B'):
-			model.transition[start].update(defaults)
-			model.reverse_transition[start].update(defaults)
+			model.transition[start].update(self.defaults)
+			model.reverse_transition[start].update(self.defaults)
 			for finish in ('A', 'B', STOP_LABEL):
 				if start == finish:
 					model.transition[start][finish] = log(1.0 / 2.0)
@@ -36,7 +36,7 @@ def test_problem():
 			model.transition[START_LABEL][start] = log(0.5)
 			model.reverse_transition[start][START_LABEL] = log(0.5)
 
-	def identity_emissions(model):
+	def identity_emissions(self, model):
 		for label in model.labels:
 			for emission in model.labels:
 				if label == emission:
@@ -46,7 +46,7 @@ def test_problem():
 					model.emission[label][emission] = float("-inf")
 					model.label_emissions[emission][label] = float("-inf")
 
-	def self_biased_emissions(model):
+	def biased_emissions(self, model):
 		for label in model.labels:
 			for emission in model.labels:
 				if label == emission:
@@ -56,123 +56,134 @@ def test_problem():
 					model.emission[label][emission] = log(1.0 / (3.0 * float(len(model.labels)-1)))
 					model.label_emissions[emission][label] = log(1.0 / (3.0 * float(len(model.labels)-1)))
 
-	def test_label(model, emissions, score, labels=None, debug=False):
+	def _test_label(self, model, emissions, score, labels=None, debug=False):
 		if debug: print
 		if not labels: labels = emissions
 
 		if debug: print "Emission-Labels: %s" % zip(emissions, labels)
 		guessed_labels, labelling_score = model.label(emissions, debug=debug, return_score=True)
 		if debug: print "Guessed labels: %s" % guessed_labels
-		assert sum(label == emission for label, emission in zip(guessed_labels, labels)) == len(emissions)
+		self.assertEqual(sum(label == emission for label, emission in zip(guessed_labels, labels)), len(emissions))
 		
 		if debug: print "Score: %f" % score
 		guessed_score = model.score(zip(guessed_labels, emissions), debug=debug)
 		if debug: print "Guessed score: %f" % guessed_score
-		assert abs(guessed_score - score) < 0.0001, score
-		assert abs(score - labelling_score) < 0.0001, score
+		self.assertAlmostEqual(guessed_score, score, 4)
+		self.assertAlmostEqual(score, labelling_score, 4)
+		
+	def setUp(self):
+		self.defaults = {START_LABEL : float("-inf"), STOP_LABEL : float("-inf")}
 
-	print "Testing emission == state w/ uniform transitions chain: ",
+	def test_identity_emission_uniform_transitions(self):
+#		print "Testing emission == state w/ uniform transitions chain: ",
 
-	model = HiddenMarkovModel()
-	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
+		model = HiddenMarkovModel()
+		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
-	set_defaults(model)
-	uniform_transitions(model)
-	identity_emissions(model)
+		self.set_defaults(model)
+		self.uniform_transitions(model)
+		self.identity_emissions(model)
 
-	tests = [['A', 'A', 'A', 'A'], ['B', 'B', 'B', 'B'], ['A', 'A', 'B', 'B'], ['B', 'A', 'B', 'B']]
+		tests = [['A', 'A', 'A', 'A'], ['B', 'B', 'B', 'B'], ['A', 'A', 'B', 'B'], ['B', 'A', 'B', 'B']]
 
-	for test in tests:
-		test_label(model, test, log(1.0 / 2.0) + log(1.0 / 3.0) * 4)
+		for test in tests:
+			self._test_label(model, test, log(1.0 / 2.0) + log(1.0 / 3.0) * 4)
 
-	print "ok"
+#		print "ok"
 
-	print "Testing emissions == labels with non-uniform transitions chain: ",
+	def test_identity_emissions_non_uniform_transitions(self):
+#		print "Testing emissions == labels with non-uniform transitions chain: ",
 
-	model = HiddenMarkovModel()
-	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
+		model = HiddenMarkovModel()
+		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
-	set_defaults(model)
-	self_biased_transitions(model)
-	identity_emissions(model)
+		self.set_defaults(model)
+		self.biased_transitions(model)
+		self.identity_emissions(model)
 
-	scores = [log(0.5) * 4 + log(0.25), log(0.5) * 4 + log(0.25), log(0.5)*3 + log(0.25)*2, log(0.5)*2 + log(0.25)*3]
-	scored_tests = zip(tests, scores)
+		tests = [['A', 'A', 'A', 'A'], ['B', 'B', 'B', 'B'], ['A', 'A', 'B', 'B'], ['B', 'A', 'B', 'B']]
+		scores = [log(0.5) * 4 + log(0.25), log(0.5) * 4 + log(0.25), log(0.5)*3 + log(0.25)*2, log(0.5)*2 + log(0.25)*3]
+		scored_tests = zip(tests, scores)
 
-	for test, score in scored_tests:
-		test_label(model, test, score)
+		for test, score in scored_tests:
+			self._test_label(model, test, score)
 
-	print "ok"
+#		print "ok"
 
-	print "Testing uniform transitions with self-biased emissions: ",
+	def test_biased_emissions_uniform_transitions(self):
+#		print "Testing uniform transitions with self-biased emissions: ",
 
-	model = HiddenMarkovModel()
-	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
+		model = HiddenMarkovModel()
+		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
-	set_defaults(model)
-	uniform_transitions(model)
-	self_biased_emissions(model)
+		self.set_defaults(model)
+		self.uniform_transitions(model)
+		self.biased_emissions(model)
 
-	scores = [log(0.5) + log(1.0 / 3.0) * 4.0 + 6.0 * log(2.0 / 3.0) for i in xrange(4)]
-	scored_tests = zip(tests, scores)
+		tests = [['A', 'A', 'A', 'A'], ['B', 'B', 'B', 'B'], ['A', 'A', 'B', 'B'], ['B', 'A', 'B', 'B']]
+		scores = [log(0.5) + log(1.0 / 3.0) * 4.0 + 6.0 * log(2.0 / 3.0) for i in xrange(4)]
+		scored_tests = zip(tests, scores)
 
-	for test, score in scored_tests:
-		test_label(model, test, score)
+		for test, score in scored_tests:
+			self._test_label(model, test, score)
 
-	print "ok"
+#		print "ok"
 
-	print "Testing self-biased transitions with self-biased emissions: ",
+	def test_biased_emissions_biased_transitions(self):
+#		print "Testing self-biased transitions with self-biased emissions: ",
 
-	model = HiddenMarkovModel()
-	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
+		model = HiddenMarkovModel()
+		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
-	set_defaults(model)
-	self_biased_transitions(model)
-	self_biased_emissions(model)
+		self.set_defaults(model)
+		self.biased_transitions(model)
+		self.biased_emissions(model)
 
-	scores = [log(0.5) * 4 + log(0.25), log(0.5) * 4 + log(0.25), log(0.5)*3 + log(0.25)*2, log(0.5)*2 + log(0.25)*3]
-	scores = [6.0 * log(2.0 / 3.0) + score for score in scores]
-	scored_tests = zip(tests, scores)
+		tests = [['A', 'A', 'A', 'A'], ['B', 'B', 'B', 'B'], ['A', 'A', 'B', 'B'], ['B', 'A', 'B', 'B']]
+		scores = [log(0.5) * 4 + log(0.25), log(0.5) * 4 + log(0.25), log(0.5)*3 + log(0.25)*2, log(0.5)*2 + log(0.25)*3]
+		scores = [6.0 * log(2.0 / 3.0) + score for score in scores]
+		scored_tests = zip(tests, scores)
 
-	for test, score in scored_tests:
-		test_label(model, test, score)
+		for test, score in scored_tests:
+			self._test_label(model, test, score)
 
-	print "ok"
+#		print "ok"
 
-	print "Testing UNK emission with emission == label and self-biased transitions: ",
+	def test_unk_emission(self):
+#		print "Testing UNK emission with emission == label and self-biased transitions: ",
 
-	model = HiddenMarkovModel()
-	model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
+		model = HiddenMarkovModel()
+		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
-	set_defaults(model)
-	identity_emissions(model)
-	self_biased_transitions(model)
+		self.set_defaults(model)
+		self.identity_emissions(model)
+		self.biased_transitions(model)
 
-	emissions = ['A', 'C', 'A', 'B', 'B']
-	labels = ['A', 'A', 'A', 'B', 'B']
-	score = log(0.5) * 2 + log(0.25) + log(0.5) + log(0.25) + log(0.5) + log(0.25)
+		emissions = ['A', 'C', 'A', 'B', 'B']
+		labels = ['A', 'A', 'A', 'B', 'B']
+		score = log(0.5) * 2 + log(0.25) + log(0.5) + log(0.25) + log(0.5) + log(0.25)
 
-	test_label(model, emissions, score, labels=labels)
+		self._test_label(model, emissions, score, labels=labels)
 
-	emissions = ['A', 'C', 'C', 'B', 'B']
-	labels = [['A', 'A', 'A', 'B', 'B'], ['A', 'A', 'B', 'B', 'B'], ['A', 'B', 'B', 'B', 'B']]
+		emissions = ['A', 'C', 'C', 'B', 'B']
+		labels = [['A', 'A', 'A', 'B', 'B'], ['A', 'A', 'B', 'B', 'B'], ['A', 'B', 'B', 'B', 'B']]
 
-	score = None
-	for label in labels:
-		new_score = model.score(zip(label, emissions))
-		if score: assert score == new_score, "score(%s) (%f) bad" % (label, new_score)
-		score = new_score
+		score = None
+		for label in labels:
+			new_score = model.score(zip(label, emissions))
+			if score: self.assertAlmostEqual(score, new_score, 5)#, "score(%s) (%f) bad" % (label, new_score)
+			score = new_score
 
-	emissions = ['A', 'C', 'C', 'B', 'B']
-	labels = [['A', 'A', 'A', 'B', 'B'], ['A', 'A', 'B', 'B', 'B'], ['A', 'B', 'B', 'B', 'B']]
+		emissions = ['A', 'C', 'C', 'B', 'B']
+		labels = [['A', 'A', 'A', 'B', 'B'], ['A', 'A', 'B', 'B', 'B'], ['A', 'B', 'B', 'B', 'B']]
 
-	score = None
-	for label in labels:
-		new_score = model.score(zip(label, emissions))
-		if score: assert score == new_score, "score(%s) (%f) bad" % (label, new_score)
-		score = new_score
+		score = None
+		for label in labels:
+			new_score = model.score(zip(label, emissions))
+			if score: self.assertAlmostEqual(score, new_score, 5)#, "score(%s) (%f) bad" % (label, new_score)
+			score = new_score
 
-	print "ok"
+#		print "ok"
 
 if __name__ == "__main__":
-	test_problem()
+	unittest.main()
