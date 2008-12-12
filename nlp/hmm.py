@@ -73,7 +73,7 @@ class HiddenMarkovModel:
 
 		return reverse_transition
 
-	def train(self, labeled_sequence, label_history_size=2, fallback_model=None, fallback_training_limit=None):
+	def train(self, labeled_sequence, label_history_size=10, fallback_model=None, fallback_training_limit=None):
 		label_counts = [Counter() for _ in xrange(label_history_size)]
 		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
@@ -91,8 +91,6 @@ class HiddenMarkovModel:
 			for history_size, label_history in enumerate(label_histories):
 				label_counts[history_size][label_history] += 1.0
 				self.fallback_transition[history_size][label_history][label] += 1.0
-
-#		print '\n'.join(["%d: %r" % (pos, [(key, len(values)) for key, values in ft.iteritems()]) for pos, ft in enumerate(self.fallback_transition)])
 
 		# Make the counters distributions
 		for transition in self.fallback_transition:	transition.normalize()
@@ -119,6 +117,8 @@ class HiddenMarkovModel:
 			self.transition[history_strings[0]] = Counter()
 			for smoothing, history_score in izip(linear_smoothing_weights, history_scores):
 				self.transition[history_strings[0]] += history_score * smoothing
+
+		self.transition.normalize()
 
 		# Convert to log score counters
 		self.transition.log()

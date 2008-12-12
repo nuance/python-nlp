@@ -1,4 +1,5 @@
 from itertools import islice, izip
+import cPickle as pickle
 import sys
 from time import time
 
@@ -28,26 +29,40 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	dataset_size = None
 	if len(arguments) >= 2: dataset_size = int(arguments[1])
 	if len(arguments) >= 3: fallback_training_limit = int(arguments[2])
-	# Load the dataset
-	print "Loading dataset"
-	start = time()
-	if dataset_size: tagged_sentences = list(islice(PennTreebankReader.read_pos_tags_from_directory("data/wsj"), dataset_size))
-	else: tagged_sentences = list(PennTreebankReader.read_pos_tags_from_directory("data/wsj"))
-	stop = time()
-	print "Reading: %f" % (stop-start)
 
-	print "Creating streams"
-	start = time()
-	training_sentences = tagged_sentences[0:len(tagged_sentences)*4/5]
-	validation_sentences = tagged_sentences[len(tagged_sentences)*8/10+1:len(tagged_sentences)*9/10]
-	testing_sentences = tagged_sentences[len(tagged_sentences)*9/10+1:]
-	print "Training: %d" % len(training_sentences)
-	print "Validation: %d" % len(validation_sentences)
-	print "Testing: %d" % len(testing_sentences)
+	try:
+		start = time()
+		pickle_file = open("pos_hmm.pickle")
+		training_stream, validation_stream, testing_sentences = pickle.load(pickle_file)
+		pickle_file.close()
+		print "Unpickling: %f" % (time() - start)
+	except IOError:
+		# Load the dataset
+		print "Loading dataset"
+		start = time()
+		if dataset_size: tagged_sentences = list(islice(PennTreebankReader.read_pos_tags_from_directory("data/wsj"), dataset_size))
+		else: tagged_sentences = list(PennTreebankReader.read_pos_tags_from_directory("data/wsj"))
+		stop = time()
+		print "Reading: %f" % (stop-start)
 
-	training_stream, validation_stream = map(merge_stream, (training_sentences, validation_sentences))
-	stop = time()
-	print "Streaming: %f" % (stop-start)
+		print "Creating streams"
+		start = time()
+		training_sentences = tagged_sentences[0:len(tagged_sentences)*4/5]
+		validation_sentences = tagged_sentences[len(tagged_sentences)*8/10+1:len(tagged_sentences)*9/10]
+		testing_sentences = tagged_sentences[len(tagged_sentences)*9/10+1:]
+
+		print "Training: %d" % len(training_sentences)
+		print "Validation: %d" % len(validation_sentences)
+		print "Testing: %d" % len(testing_sentences)
+
+		training_stream, validation_stream = map(merge_stream, (training_sentences, validation_sentences))
+		stop = time()
+		print "Streaming: %f" % (stop-start)
+
+		serialized = (training_stream, validation_stream, testing_sentences)
+		pickle_file = open("pos_hmm.pickle", "w")
+		pickle.dump(serialized, pickle_file, protocol=-1)
+		pickle_file.close()
 
 	print "Training"
 	start = time()
