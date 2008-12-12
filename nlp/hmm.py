@@ -52,13 +52,13 @@ class HiddenMarkovModel:
 		for label, emission in sequence:
 			last_labels.append(label)
 			last_labels.pop(0)
+			
+			if label == START_LABEL:
+				last_labels = [START_LABEL for _ in xrange(label_history_size)]
 
-			if label != START_LABEL and label != STOP_LABEL:
-				all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size-1])
-							  for length in xrange(label_history_size))
-				full_labeled_sequence.append((label, tuple(all_labels), emission))
-			else:
-				full_labeled_sequence.append((label, ['',], emission))
+			all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size-1])
+						  for length in xrange(label_history_size))
+			full_labeled_sequence.append((label, tuple(all_labels), emission))
 
 		return full_labeled_sequence
 

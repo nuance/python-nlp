@@ -3,7 +3,7 @@ import unittest
 
 from hmm import HiddenMarkovModel, START_LABEL, STOP_LABEL
 
-class HMMTest(unittest.TestCase):
+class SimpleHMMTest(unittest.TestCase):
 
 	def set_defaults(self, model):
 		for state in model.labels:
@@ -184,6 +184,38 @@ class HMMTest(unittest.TestCase):
 			score = new_score
 
 #		print "ok"
+
+class HMMUtilityTest(unittest.TestCase):
+	def test_extend_labels_simple(self):
+		stream = (('1', 1), ('2', 2), ('3', 3))
+		two_extended = [('1', ('', '<START>'), 1), ('2', ('', '1'), 2), ('3', ('', '2'), 3)]
+
+		self.assertEquals(HiddenMarkovModel._extend_labels(stream, 2), two_extended)
+
+	def test_extend_labels_multiple_sentences(self):
+		stream = (('1', 1), ('2', 2), ('<STOP>', '<STOP>'), ('<START>', '<START>'), ('1', 1))
+		two_extended = [('1', ('', '<START>'), 1), ('2', ('', '1'), 2), ('<STOP>', ('', '2'), '<STOP>'), ('<START>', ('', '<START>'), '<START>'), ('1', ('', '<START>'), 1)]
+
+		self.assertEquals(HiddenMarkovModel._extend_labels(stream, 2), two_extended)
+
+	def test_extend_labels_one_history(self):
+		stream = (('1', 1), ('2', 2), ('3', 3))
+		one_extended = [('1', ('',), 1), ('2', ('',), 2), ('3', ('',), 3)]
+
+		self.assertEquals(HiddenMarkovModel._extend_labels(stream, 1), one_extended)
+		
+	def test_extend_labels_three_history(self):
+		stream = (('1', 1), ('2', 2), ('3', 3))
+		three_extended = [('1', ('', '<START>', '<START>::<START>'), 1), ('2', ('', '1', '<START>::1'), 2), ('3', ('', '2', '1::2'), 3)]
+
+		self.assertEquals(HiddenMarkovModel._extend_labels(stream, 3), three_extended)
+
+	def test_extend_labels_longer_history_than_sentence(self):
+		stream = (('1', 1), ('2', 2))
+		five_extended = [('1', ('', '<START>', '<START>::<START>', '<START>::<START>::<START>', '<START>::<START>::<START>::<START>'), 1),
+						 ('2', ('', '1', '<START>::1', '<START>::<START>::1', '<START>::<START>::<START>::1'), 2)]
+
+		self.assertEquals(HiddenMarkovModel._extend_labels(stream, 5), five_extended)
 
 if __name__ == "__main__":
 	unittest.main()
