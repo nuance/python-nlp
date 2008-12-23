@@ -1,9 +1,9 @@
 # Simple HMM implementation. Test code focuses on discrete signal reconstruction.
 
-import sys
-import random
 from itertools import izip, islice
 from math import log, exp
+import random
+import sys
 
 from countermap import CounterMap
 from nlp import counter as Counter
@@ -13,29 +13,31 @@ START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
 
 class HiddenMarkovModel:
-	# Distribution over next state given current state
-	labels = list()
-	transition = CounterMap()
-	reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
-	fallback_emissions_model = None
-	fallback_transition = None
-	fallback_reverse_transition = None
+	def __init__(self):
+		# Distribution over next state given current state
+		self.labels = list()
+		self.transition = CounterMap()
+		self.reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
-	# Multinomial distribution over emissions given label
-	emission = CounterMap()
-	# p(label | emission)
-	label_emissions = CounterMap()
+		self.fallback_emissions_model = None
+		self.fallback_transition = None
+		self.fallback_reverse_transition = None
+
+		# Multinomial distribution over emissions given label
+		self.emission = CounterMap()
+		# p(label | emission)
+		self.label_emissions = CounterMap()
 
 	@classmethod
 	def __pad_sequence(cls, sequence, pairs=False):
-		if pairs: padding = [(START_LABEL, START_LABEL),]
-		else: padding = [START_LABEL,]
-		padding.extend(sequence)
-		if pairs: padding.append((STOP_LABEL, STOP_LABEL))
-		else: padding.append(STOP_LABEL)
+		if pairs: yield (START_LABEL, START_LABEL)
+		else: yield START_LABEL
 
-		return padding
+		for item in sequence: yield item
+
+		if pairs: yield (STOP_LABEL, STOP_LABEL)
+		else: yield STOP_LABEL
 
 	@classmethod
 	def _extend_labels(cls, sequence, label_history_size):
@@ -46,7 +48,6 @@ class HiddenMarkovModel:
 		>>> foo._extend_labels((('A', 3), ('B', 4), ('C', 5)), 2)
 		[(('A', '<START>::A'), 3), (('B', 'A::B'), 4), (('C', 'B::C'), 5)]
 		'''
-		full_labeled_sequence = []
 		last_labels = [START_LABEL for _ in xrange(label_history_size)]
 
 		for label, emission in sequence:
@@ -58,9 +59,7 @@ class HiddenMarkovModel:
 
 			all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size-1])
 						  for length in xrange(label_history_size))
-			full_labeled_sequence.append((label, tuple(all_labels), emission))
-
-		return full_labeled_sequence
+			yield (label, tuple(all_labels), emission)
 
 	@classmethod
 	def __reverse_transition(cls, transition):
@@ -78,9 +77,8 @@ class HiddenMarkovModel:
 		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
 
-		# FIXME: These should both be generators, with the second call changed to list(gen seq)
 		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
-		labeled_sequence = self._extend_labels(labeled_sequence, label_history_size)
+		labeled_sequence = list(self._extend_labels(labeled_sequence, label_history_size))
 
 		# Load emission and transition counters from the raw data
 		for label, label_histories, emission in labeled_sequence:
@@ -187,7 +185,7 @@ class HiddenMarkovModel:
 		debug = False
 
 		# This needs to perform viterbi decoding on the the emission sequence
-		emission_sequence = self.__pad_sequence(emission_sequence)
+		emission_sequence = list(self.__pad_sequence(emission_sequence))
 
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		backtrack = [dict() for state in emission_sequence]
