@@ -186,8 +186,6 @@ class ScoreLabelTest(unittest.TestCase):
 
 #		print "ok"
 
-class HistorySizeTest(unittest.TestCase):
-	pass
 
 class TrainingTest(unittest.TestCase):
 	""" Test that training produces expected probability outcomes
@@ -290,6 +288,23 @@ class TrainingTest(unittest.TestCase):
 		self.assertEqual(model.transition['<START>::A::B']['A'], 0.0)
 		self.assertEqual(model.transition['A::B::A']['B'], 0.0)
 		self.assertEqual(model.transition['B::A::B']['A'], log(0.5))
+
+
+class HMMSmoothingTest(unittest.TestCase):
+	def test_linear_smoothing_training(self):
+		pass
+
+	def test_linear_smoothing_no_op(self):
+		pass
+
+	def test_linear_smoothing_single_history(self):
+		pass
+
+	def test_linear_smoothing_triple_history(self):
+		pass
+
+	def test_fallback_emission_model(self):
+		pass
 
 
 class HMMUtilityTest(unittest.TestCase):

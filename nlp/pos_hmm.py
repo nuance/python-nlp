@@ -93,8 +93,8 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 			if guessed_score < correct_score: print "%d Guessed: %f, Correct: %f" % (len(emissions), guessed_score, correct_score)
 
 			debug_label = lambda: pos_tagger.label(emissions, debug=True)
-			debug_score = lambda labels: pos_tagger.score(zip(labels, emissions), debug=True)
-			assert guessed_score >= correct_score or len(emissions) > 12, "Decoder sub-optimality (%f for guess, %f for correct)\n%s vs. %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label(), correct_labels)
+			debug_score = lambda labels: pos_tagger.score(zip(labels, emissions), debug=False)
+			assert guessed_score >= correct_score or len(emissions) > 23, "Decoder sub-optimality (%f for guess, %f for correct)\n%s vs. %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label(), correct_labels)
 
 	stop = time()
 	print "Testing: %f" % (stop-start)
