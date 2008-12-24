@@ -72,13 +72,38 @@ class HiddenMarkovModel:
 
 		return reverse_transition
 
-	def train(self, labeled_sequence, label_history_size=10, fallback_model=None, fallback_training_limit=None):
+	@classmethod
+	def _linear_smooth(cls, labels, fallback_transition, label_history_size):
+		transition = CounterMap()
+		linear_smoothing_weights = [1.0 - 0.1 * (label_history_size-1)]
+		linear_smoothing_weights.extend(0.1 for _ in xrange(label_history_size-1))
+
+		# This is super inefficient - it should be caching smoothings involving the less-specific counters
+		# e.g. smoothed['NN']['CD'] = cnter['NN']['CD'] * \lambda * smoothed['NN'] and so on
+		all_label_histories = set(permutations(labels, label_history_size-1))
+		for label_history in all_label_histories:
+			histories = [history for history in (label_history[i:] for i in xrange(label_history_size))]
+			# >>> label_history = ('WDT', 'RBR')
+			# histories = [('WDT', 'RBR'), ('RBR')]
+
+			history_strings = ['::'.join(history) for history in histories]
+			history_scores = [fallback_transition[len(history)][history_string] for history, history_string in izip(histories, history_strings)]
+
+			transition[history_strings[0]] = Counter()
+			for smoothing, history_score in izip(linear_smoothing_weights, history_scores):
+				transition[history_strings[0]] += history_score * smoothing
+
+		transition.normalize()
+
+		return transition
+
+	def train(self, labeled_sequence, label_history_size=10, fallback_model=None, fallback_training_limit=None, use_linear_smoothing=True):
 		label_counts = [Counter() for _ in xrange(label_history_size)]
 		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
 
-		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
-		labeled_sequence = list(self._extend_labels(labeled_sequence, label_history_size))
+		labeled_sequence = HiddenMarkovModel.__pad_sequence(labeled_sequence, pairs=True)
+		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, label_history_size))
 
 		# Load emission and transition counters from the raw data
 		for label, label_histories, emission in labeled_sequence:
@@ -97,26 +122,10 @@ class HiddenMarkovModel:
 		self.labels = self.emission.keys()
 
 		# Smooth transitions using fallback data
-		self.transition = CounterMap()
-		linear_smoothing_weights = [1.0 - 0.1 * (label_history_size-1)]
-		linear_smoothing_weights.extend(0.1 for _ in xrange(label_history_size-1))
-
-		# This is super inefficient - it should be caching smoothings involving the less-specific counters
-		# e.g. smoothed['NN']['CD'] = cnter['NN']['CD'] * \lambda * smoothed['NN'] and so on
-		all_label_histories = set(permutations(self.labels, label_history_size-1))
-		for label_history in all_label_histories:
-			histories = [history for history in (label_history[i:] for i in xrange(label_history_size))]
-			# >>> label_history = ('WDT', 'RBR')
-			# histories = [('WDT', 'RBR'), ('RBR')]
-
-			history_strings = ['::'.join(history) for history in histories]
-			history_scores = [self.fallback_transition[len(history)][history_string] for history, history_string in izip(histories, history_strings)]
-
-			self.transition[history_strings[0]] = Counter()
-			for smoothing, history_score in izip(linear_smoothing_weights, history_scores):
-				self.transition[history_strings[0]] += history_score * smoothing
-
-		self.transition.normalize()
+		if use_linear_smoothing:
+			self.transition = HiddenMarkovModel._linear_smooth(self.labels, self.fallback_transition, label_history_size)
+		else:
+			self.transition = self.fallback_transition[-1]
 
 		# Convert to log score counters
 		self.transition.log()
