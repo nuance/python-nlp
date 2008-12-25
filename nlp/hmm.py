@@ -200,7 +200,7 @@ class HiddenMarkovModel:
 			curr_scores.default = float("-inf")
 
 			if pos == 0:
-				curr_scores['::'.join(repeat(START_LABEL, self.label_history_size-1))] = 0.0
+				curr_scores['::'.join(repeat(START_LABEL, self.label_history_size-2))] = 0.0
 			else:
 				# Transition probs (prob of arriving in this state)
 				prev_scores = scores[pos-1]
@@ -208,29 +208,28 @@ class HiddenMarkovModel:
 					print " >> PREVIOUS SCORES    :: %s" % [(history, score) for history, score in prev_scores.iteritems() if score > float("-inf")]
 
 				for label in self.labels:
-					# self.reverse_transition[label] is always a counter of { '' } for label_history_size = 1- why?
+					# FIXME
+					# Problem: prev_scores is keyed on partial labels, reverse transition is keyed on full labels
 					transition_scores = prev_scores + self.reverse_transition[label]
+
 #					if debug:
 #					 	print "  Label %s :: %s" % (label, [(history, "%f + %f" % (prev_score, self.reverse_transition[label][history]))
 #															for history, prev_score in prev_scores.iteritems()
 #															if (prev_score > float("-inf"))
 #															or (self.reverse_transition[label][history] > float("-inf"))])
+					# FIXME
 					last = transition_scores.arg_max()
 					curr_score = transition_scores[last]
+
 					if curr_score > float("-inf"):
-						history = '::'.join(last.split('::')[1:])
-						if history:
-							history += '::' + label
-						else:
-							history = label
-						backpointers[history] = last
-						curr_scores[history] = curr_score
+						backpointers[label] = last
+						curr_scores[label] = curr_score
 
 						if debug:
-							print "          :: %f => %s" % (curr_scores[history], backpointers[history])
+							print "          :: %f => %s" % (curr_scores[label], backpointers[label])
 
 				if debug:
-					print " >> PREVIOUS           :: %s" % [(backpointers[history], prev_scores[backpointers[history]]) for history in curr_scores]
+					print " >> PREVIOUS           :: %s" % [(backpointers[label], prev_scores[backpointers[label]]) for label in curr_scores]
 					print " ++ TRANSITIONS        ::",
 					if self.label_emissions.get(emission):
 						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
@@ -238,8 +237,15 @@ class HiddenMarkovModel:
 						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
 
 			# Emission probs (prob. of emitting `emission`)
-			if self.label_emissions.get(emission): curr_scores += self.label_emissions[emission]
-			else: curr_scores += self.emission_fallback_probs(emission)
+			if debug:
+				print "Emission: %s" % emission
+				print "  Scores before: %s" % curr_scores
+			if self.label_emissions.get(emission):
+				curr_scores += self.label_emissions[emission]
+			else:
+				curr_scores += self.emission_fallback_probs(emission)
+			if debug:
+				print "  Scores after: %s" % curr_scores
 
 			if debug:
 				if self.label_emissions[emission]:
