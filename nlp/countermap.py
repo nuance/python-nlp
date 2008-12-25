@@ -43,6 +43,24 @@ class CounterMap(defaultdict):
 		FIXME: this isn't guaranteed to return the same thing every time"""
 		return chain([izip(repeat(key, len(counter.iteritems())), counter.iteritems()) for (key, counter) in self.iteritems()])
 
+	def inverted(self):
+		""" Change map of {a : {b : ...}} to {b : {a : ...}}
+		"""
+		inverted = CounterMap()
+		default = None
+
+		for label, counter in self.iteritems():
+			if not default:
+				default = counter.default
+			elif default != counter.default:
+				raise Exception("Counters don't have the same defaults!")
+
+			for sublabel, score in counter.iteritems():
+				inverted[sublabel][label] = score
+				inverted[sublabel].default = default
+
+		return inverted
+
 	def inner_product(self, other):
 		ret = 0.0
 
