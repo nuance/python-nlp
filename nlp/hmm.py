@@ -1,7 +1,8 @@
 # Simple HMM implementation. Test code focuses on discrete signal reconstruction.
 
-from itertools import izip, islice
+from itertools import izip, islice, repeat
 from math import log, exp
+from pprint import pformat
 import random
 import sys
 
@@ -17,6 +18,7 @@ class HiddenMarkovModel:
 	def __init__(self):
 		# Distribution over next state given current state
 		self.labels = list()
+		self.label_history_size = 0
 		self.transition = CounterMap()
 		self.reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
@@ -62,17 +64,6 @@ class HiddenMarkovModel:
 			yield (label, tuple(all_labels), emission)
 
 	@classmethod
-	def __reverse_transition(cls, transition):
-		reverse_transition = CounterMap()
-		# Construct reverse transition probabilities
-		for label, counter in transition.iteritems():
-			for sublabel, score in counter.iteritems():
-				reverse_transition[sublabel][label] = score
-				reverse_transition[sublabel].default = float("-inf")
-
-		return reverse_transition
-
-	@classmethod
 	def _linear_smooth(cls, labels, fallback_transition, label_history_size):
 		transition = CounterMap()
 		linear_smoothing_weights = [1.0 - 0.1 * (label_history_size-1)]
@@ -98,6 +89,7 @@ class HiddenMarkovModel:
 		return transition
 
 	def train(self, labeled_sequence, label_history_size=3, fallback_model=None, fallback_training_limit=None, use_linear_smoothing=True):
+		self.label_history_size = label_history_size
 		label_counts = [Counter() for _ in xrange(label_history_size)]
 		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
@@ -119,21 +111,20 @@ class HiddenMarkovModel:
 		for transition in self.fallback_transition:	transition.normalize()
 		self.label_emissions.normalize()
 		self.emission.normalize()
+		self.labels = self.emission.keys()
 
 		# Smooth transitions using fallback data
 		if use_linear_smoothing:
-			self.transition = HiddenMarkovModel._linear_smooth(self.emission.keys(), self.fallback_transition, label_history_size)
+			self.transition = HiddenMarkovModel._linear_smooth(self.labels, self.fallback_transition, label_history_size)
 		else:
 			self.transition = self.fallback_transition[-1]
-
-		self.labels = self.transition.keys()
 
 		# Convert to log score counters
 		self.transition.log()
 		self.label_emissions.log()
 		self.emission.log()
 
-		self.reverse_transition = self.__reverse_transition(self.transition)
+		self.reverse_transition = self.transition.inverted()
 
 		# Train the fallback model on the label-emission pairs
 		if fallback_model:
@@ -191,8 +182,8 @@ class HiddenMarkovModel:
 	def label(self, emission_sequence, debug=False, return_score=False):
 		if debug: print "LABEL :: %s" % emission_sequence
 
-		f = debug or True
-		debug = False or True
+		f = debug
+		debug = False
 
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = list(self.__pad_sequence(emission_sequence))
@@ -203,49 +194,62 @@ class HiddenMarkovModel:
 
 		for pos, (emission, backpointers) in enumerate(izip(emission_sequence, backtrack)):
 			debug = f and 0 <= pos <= 24
-			if debug: print "** ENTERING POS %d      :: %s" % (pos, emission)
+			if debug: print "** ENTERING POS %d     :: %s" % (pos, emission)
+
 			curr_scores = Counter()
 			curr_scores.default = float("-inf")
 
 			if pos == 0:
-				curr_scores[START_LABEL] = 0.0
+				curr_scores['::'.join(repeat(START_LABEL, self.label_history_size-1))] = 0.0
 			else:
 				# Transition probs (prob of arriving in this state)
 				prev_scores = scores[pos-1]
+				if debug:
+					print " >> PREVIOUS SCORES    :: %s" % [(history, score) for history, score in prev_scores.iteritems() if score > float("-inf")]
+
 				for label in self.labels:
+					# self.reverse_transition[label] is always a counter of { '' } for label_history_size = 1- why?
 					transition_scores = prev_scores + self.reverse_transition[label]
-					# if debug:
-					# 	print "  Label %s :: %s" % (label, [i for i in transition_scores.iteritems() if i[1] != float("-inf")])
+#					if debug:
+#					 	print "  Label %s :: %s" % (label, [(history, "%f + %f" % (prev_score, self.reverse_transition[label][history]))
+#															for history, prev_score in prev_scores.iteritems()
+#															if (prev_score > float("-inf"))
+#															or (self.reverse_transition[label][history] > float("-inf"))])
 					last = transition_scores.arg_max()
 					curr_score = transition_scores[last]
 					if curr_score > float("-inf"):
-						backpointers[label] = last
-						curr_scores[label] = curr_score
+						history = '::'.join(last.split('::')[1:])
+						if history:
+							history += '::' + label
+						else:
+							history = label
+						backpointers[history] = last
+						curr_scores[history] = curr_score
 
-						# if debug:
-						#	print "          :: %f => %s" % (curr_scores[label], backpointers[label])
+						if debug:
+							print "          :: %f => %s" % (curr_scores[history], backpointers[history])
 
 				if debug:
-					print " >> PREVIOUS           :: %s" % [(backpointers[label], prev_scores[backpointers[label]]) for label in curr_scores if label in self.label_emissions[emission]]
+					print " >> PREVIOUS           :: %s" % [(backpointers[history], prev_scores[backpointers[history]]) for history in curr_scores]
 					print " ++ TRANSITIONS        ::",
-					if self.label_emissions[emission]:
+					if self.label_emissions.get(emission):
 						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
 					else:
 						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
 
 			# Emission probs (prob. of emitting `emission`)
-			if self.label_emissions.get(emission, None): curr_scores += self.label_emissions[emission]
+			if self.label_emissions.get(emission): curr_scores += self.label_emissions[emission]
 			else: curr_scores += self.emission_fallback_probs(emission)
-			
+
 			if debug:
 				if self.label_emissions[emission]:
 					print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
 				else:
 					fallback = self.emission_fallback_probs(emission)
-					
+
 					print " ++ EMISSIONS FALLBACK :: %s: %f" % self.emission_fallback_probs(emission).items()[0]#[(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
 
-			if debug: print "=> EXITING WITH SCORES :: %s" % [item for item in curr_scores.iteritems() if item[1] != float("-inf")]
+			if debug: print "=> EXITING WITH SCORES :: %s" % [(label, score) for label, score in curr_scores.iteritems() if score != float("-inf")]
 			scores.append(curr_scores)
 
 		# Now decode
@@ -262,8 +266,6 @@ class HiddenMarkovModel:
 
 		states.pop()
 		states.reverse()
-
-		assert False
 
 		if return_score:
 			return states, scores[-1][STOP_LABEL]
@@ -300,7 +302,8 @@ class HiddenMarkovModel:
 			yield (state, self.__sample_emission(state))
 			state = self.__sample_transition(state)
 
-def debug_problem(args): #pragma: no cover
+def debug_problem(args):
+	#pragma: no cover
 	# Very simple chain for debugging purposes
 	states = ['1', '1', '1', '2', '3', '3', '3', '3', STOP_LABEL, START_LABEL, '2', '3', '3']
 	emissions = ['y', 'm', 'y', 'm', 'n', 'm', 'n', 'm', STOP_LABEL, START_LABEL, 'm', 'n', 'n']
@@ -329,7 +332,8 @@ def debug_problem(args): #pragma: no cover
 	print [label for label, _ in sample]
 	print [emission for _, emission in sample]
 
-def toy_problem(args): #pragma: no cover
+def toy_problem(args):
+	#pragma: no cover
 	# Simulate a 3 state markov chain with transition matrix (given states in row vector):
 	#  (destination)
 	#   1    2    3
