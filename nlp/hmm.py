@@ -45,9 +45,11 @@ class HiddenMarkovModel:
 		'''
 		>>> foo = HiddenMarkovModel()
 		>>> foo._extend_labels((('A', 3), ('B', 4), ('C', 5)), 1)
-		[(('A',), 3), (('B',), 4), (('C',), 5)]
+		[('A', (), 3), ('B', (), 4), ('C', (), 5)]
 		>>> foo._extend_labels((('A', 3), ('B', 4), ('C', 5)), 2)
-		[(('A', '<START>::A'), 3), (('B', 'A::B'), 4), (('C', 'B::C'), 5)]
+		[('A', ('<START>',), 3),
+		 ('B', ('A',), 4),
+		 ('C', ('B',), 5)]
 		'''
 		last_labels = [START_LABEL for _ in xrange(label_history_size)]
 
@@ -58,8 +60,8 @@ class HiddenMarkovModel:
 			if label == START_LABEL:
 				last_labels = [START_LABEL for _ in xrange(label_history_size)]
 
-			all_labels = ('::'.join(last_labels[label_history_size-length-1:])
-						  for length in xrange(label_history_size))
+			all_labels = ('::'.join(last_labels[label_history_size-length-2:-1])
+						  for length in xrange(label_history_size-1))
 			yield (label, tuple(all_labels), emission)
 
 	@property
@@ -104,17 +106,18 @@ class HiddenMarkovModel:
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(self.label_history_size)]
 
 		labeled_sequence = HiddenMarkovModel.__pad_sequence(labeled_sequence, pairs=True)
-		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, self.label_history_size))
+		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, self.label_history_size+1))
 
 		# Load emission and transition counters from the raw data
 		for label, label_histories, emission in labeled_sequence:
-			# Only train emissions model on the shortest label (for now)
-			self.emission[label][emission] += 1.0
-			self.label_emissions[emission][label] += 1.0
+			full_label = self.push_label(label_histories[-1], label)
+
+			self.emission[full_label][emission] += 1.0
+			self.label_emissions[emission][full_label] += 1.0
 
 			for history_size, label_history in enumerate(label_histories):
 				label_counts[history_size][label_history] += 1.0
-				self.fallback_transition[history_size][label_history][label] += 1.0
+				self.fallback_transition[history_size][label_history][full_label] += 1.0
 
 		# Make the counters distributions
 		for transition in self.fallback_transition:	transition.normalize()
