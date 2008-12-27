@@ -1,27 +1,27 @@
 from collections import defaultdict
 from copy import copy
 from itertools import chain, izip, repeat
+from math import log
 
 from nlp import counter
 from counter import Counter
 
 class CounterMap(defaultdict):
-	use_c_counter = False
-	
 	def __init__(self, use_c_counter = True, default=0.0):
 		self.use_c_counter = use_c_counter
+		self.default = default
 		
 		if use_c_counter:
 			def counter_with_default():
 				ret = counter()
-				ret.default = default
+				ret.default = self.default
 				return ret
 
 			super(CounterMap, self).__init__(counter_with_default)
 		else:
 			def counter_with_default():
 				ret = Counter()
-				ret.default = default
+				ret.default = self.default
 				return ret
 
 			super(CounterMap, self).__init__(counter_with_default)
@@ -37,6 +37,11 @@ class CounterMap(defaultdict):
 	def log(self):
 		for sub_counter in self.itervalues():
 			sub_counter.log()
+
+		try:
+			self.default = log(self.default)
+		except OverflowError:
+			self.default = float("-inf")
 
 	def linearize(self):
 		"""Return an iterator over (key, subkey) pairs (so we can view a countermap as a vector)
