@@ -2,6 +2,10 @@
 A bunch of random utility functions
 '''
 
+from nlp import counter as Counter
+from decorator import decorator
+from pprint import pformat
+
 try:
 	from itertools import permutations
 except ImportError:
@@ -28,3 +32,33 @@ except ImportError:
 					break
 			else:
 				return
+def getattr_(obj, name, default_thunk):
+    "Similar to .setdefault in dictionaries."
+    try:
+        return getattr(obj, name)
+    except AttributeError:
+        default = default_thunk()
+        setattr(obj, name, default)
+        return default
+
+@decorator
+def counted(func, *args):
+	dic = getattr_(func, "counting_dic", Counter)
+
+	if 'print_counts' in args:
+		return pformat(dic)
+
+	# counting_dic is created at the first call
+	dic[args[1:]] += 1
+	return func(*args)
+
+@decorator
+def memoized(func, *args):
+    dic = getattr_(func, "memoize_dic", dict)
+    # memoize_dic is created at the first call
+    if args in dic:
+        return dic[args]
+    else:
+        result = func(*args)
+        dic[args] = result
+        return result
