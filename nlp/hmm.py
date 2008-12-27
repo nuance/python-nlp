@@ -8,7 +8,7 @@ import sys
 
 from countermap import CounterMap
 from nlp import counter as Counter
-from utilities import permutations
+from utilities import permutations, memoized
 
 START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
@@ -130,7 +130,9 @@ class HiddenMarkovModel:
 		if fallback_model:
 			self.fallback_emissions_model = fallback_model()
 
-			emissions_training_pairs = ((label, emission) for label, _, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+			emissions_training_pairs = ((emission_history[-1] + '::' + label, emission) for label, emission_history, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+
+			print pformat(list(emissions_training_pairs)[-10:])
 
 			if fallback_training_limit:
 				emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
@@ -146,6 +148,24 @@ class HiddenMarkovModel:
 		for label in self.labels: fallback[label] = uniform
 
 		return fallback
+
+	def expanded_emission_probs(self, keys, emission):
+		"""
+		Returns a counter of P(partial history | emission)
+		"""
+
+# 		Emission probs (prob. of emitting `emission`) are P(label | emission),
+# 		  so we need to convert the single labels to reduced history
+# 		  e.g. say that P(DT | "A") = log(0.75), then we assume that
+# 		  P(NNP::DT | "A") = P(DT::DT | "A") = log(0.75)
+		reduced_emission_probs = None
+
+		if self.label_emissions.get(emission):
+			reduced_emission_probs = self.label_emissions[emission]
+		else:
+			reduced_emission_probs = self.emission_fallback_probs(emission)
+
+		return reduced_emission_probs
 
 	def score(self, labeled_sequence, debug=False):
 		score = 0.0
@@ -180,44 +200,32 @@ class HiddenMarkovModel:
 		return score
 
 	def label(self, emission_sequence, debug=False, return_score=False):
-		if debug: print "LABEL :: %s" % emission_sequence
-
-		f = debug
-		debug = False
-
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_sequence = list(self.__pad_sequence(emission_sequence))
 
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		backtrack = [dict() for state in emission_sequence]
+		# Scores should contain counters with reduced histories as keys (so if
+		# history is STATE1::STATE2::STATE3, key is STATE2::STATE3)
 		scores = list()
 
 		for pos, (emission, backpointers) in enumerate(izip(emission_sequence, backtrack)):
-			debug = f and 0 <= pos <= 24
-			if debug: print "** ENTERING POS %d     :: %s" % (pos, emission)
-
 			curr_scores = Counter()
 			curr_scores.default = float("-inf")
 
 			if pos == 0:
-				curr_scores['::'.join(repeat(START_LABEL, self.label_history_size-2))] = 0.0
+				# Pack curr_scores with just the reduced start history
+				curr_scores['::'.join(repeat(START_LABEL, self.label_history_size-1))] = 0.0
 			else:
 				# Transition probs (prob of arriving in this state)
 				prev_scores = scores[pos-1]
-				if debug:
-					print " >> PREVIOUS SCORES    :: %s" % [(history, score) for history, score in prev_scores.iteritems() if score > float("-inf")]
 
 				for label in self.labels:
-					# FIXME
-					# Problem: prev_scores is keyed on partial labels, reverse transition is keyed on full labels
+					# label is the possible current state label, so we need to
+					# consider transitions scores from any subset of reduced
+					# histories preceding label
 					transition_scores = prev_scores + self.reverse_transition[label]
 
-#					if debug:
-#					 	print "  Label %s :: %s" % (label, [(history, "%f + %f" % (prev_score, self.reverse_transition[label][history]))
-#															for history, prev_score in prev_scores.iteritems()
-#															if (prev_score > float("-inf"))
-#															or (self.reverse_transition[label][history] > float("-inf"))])
-					# FIXME
 					last = transition_scores.arg_max()
 					curr_score = transition_scores[last]
 
@@ -225,37 +233,8 @@ class HiddenMarkovModel:
 						backpointers[label] = last
 						curr_scores[label] = curr_score
 
-						if debug:
-							print "          :: %f => %s" % (curr_scores[label], backpointers[label])
+			curr_scores += self.expanded_emission_probs(set(curr_scores.iterkeys()), emission)
 
-				if debug:
-					print " >> PREVIOUS           :: %s" % [(backpointers[label], prev_scores[backpointers[label]]) for label in curr_scores]
-					print " ++ TRANSITIONS        ::",
-					if self.label_emissions.get(emission):
-						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems() if label in self.label_emissions[emission]]
-					else:
-						print ["%s => %s :: %f" % (backpointers[label], label, score) for label, score in curr_scores.iteritems()]
-
-			# Emission probs (prob. of emitting `emission`)
-			if debug:
-				print "Emission: %s" % emission
-				print "  Scores before: %s" % curr_scores
-			if self.label_emissions.get(emission):
-				curr_scores += self.label_emissions[emission]
-			else:
-				curr_scores += self.emission_fallback_probs(emission)
-			if debug:
-				print "  Scores after: %s" % curr_scores
-
-			if debug:
-				if self.label_emissions[emission]:
-					print " ++ EMISSIONS          :: %s" % self.label_emissions[emission].items()
-				else:
-					fallback = self.emission_fallback_probs(emission)
-
-					print " ++ EMISSIONS FALLBACK :: %s: %f" % self.emission_fallback_probs(emission).items()[0]#[(label, score) for label, score in self.fallback_probs(emission).iteritems() if label in curr_scores]
-
-			if debug: print "=> EXITING WITH SCORES :: %s" % [(label, score) for label, score in curr_scores.iteritems() if score != float("-inf")]
 			scores.append(curr_scores)
 
 		# Now decode
