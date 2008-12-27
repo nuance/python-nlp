@@ -14,11 +14,10 @@ START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
 
 class HiddenMarkovModel:
-
-	def __init__(self):
+	def __init__(self, label_history_size=1):
 		# Distribution over next state given current state
 		self.labels = list()
-		self.label_history_size = 0
+		self.label_history_size = label_history_size
 		self.transition = CounterMap()
 		self.reverse_transition = CounterMap() # same as transitions but indexed in reverse (useful for decoding)
 
@@ -63,6 +62,17 @@ class HiddenMarkovModel:
 						  for length in xrange(label_history_size))
 			yield (label, tuple(all_labels), emission)
 
+	@property
+	def start_label(self):
+		return '::'.join(repeat(START_LABEL, self.label_history_size))
+
+	@property
+	def stop_label(self):
+		return '::'.join(repeat(STOP_LABEL, self.label_history_size))
+
+	def push_label(self, history, label):
+		return '::'.join(history.split('::')[1:] + [label,])
+
 	@classmethod
 	def _linear_smooth(cls, labels, fallback_transition, label_history_size):
 		transition = CounterMap()
@@ -88,14 +98,13 @@ class HiddenMarkovModel:
 
 		return transition
 
-	def train(self, labeled_sequence, label_history_size=3, fallback_model=None, fallback_training_limit=None, use_linear_smoothing=True):
-		self.label_history_size = label_history_size
-		label_counts = [Counter() for _ in xrange(label_history_size)]
-		self.fallback_transition = [CounterMap() for _ in xrange(label_history_size)]
-		self.fallback_reverse_transition = [CounterMap() for _ in xrange(label_history_size)]
+	def train(self, labeled_sequence, fallback_model=None, fallback_training_limit=None, use_linear_smoothing=True):
+		label_counts = [Counter() for _ in xrange(self.label_history_size)]
+		self.fallback_transition = [CounterMap() for _ in xrange(self.label_history_size)]
+		self.fallback_reverse_transition = [CounterMap() for _ in xrange(self.label_history_size)]
 
 		labeled_sequence = HiddenMarkovModel.__pad_sequence(labeled_sequence, pairs=True)
-		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, label_history_size))
+		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, self.label_history_size))
 
 		# Load emission and transition counters from the raw data
 		for label, label_histories, emission in labeled_sequence:
@@ -115,7 +124,7 @@ class HiddenMarkovModel:
 
 		# Smooth transitions using fallback data
 		if use_linear_smoothing:
-			self.transition = HiddenMarkovModel._linear_smooth(self.labels, self.fallback_transition, label_history_size)
+			self.transition = HiddenMarkovModel._linear_smooth(self.labels, self.fallback_transition, self.label_history_size)
 		else:
 			self.transition = self.fallback_transition[-1]
 
@@ -149,15 +158,16 @@ class HiddenMarkovModel:
 
 		return fallback
 
-	def expanded_emission_probs(self, keys, emission):
+	def emission_scores(self, emission):
 		"""
-		Returns a counter of P(partial history | emission)
+		Returns a counter of P(state | emission)
 		"""
 
-# 		Emission probs (prob. of emitting `emission`) are P(label | emission),
-# 		  so we need to convert the single labels to reduced history
-# 		  e.g. say that P(DT | "A") = log(0.75), then we assume that
-# 		  P(NNP::DT | "A") = P(DT::DT | "A") = log(0.75)
+		# Emission probs (prob. of emitting `emission`) are P(label | emission),
+		# so we need to convert the single labels to reduced history
+		# e.g. say that P(DT | "A") = log(0.75), then we assume that
+		# P(NNP::DT | "A") = P(DT::DT | "A") = log(0.75)
+
 		reduced_emission_probs = None
 
 		if self.label_emissions.get(emission):
@@ -167,33 +177,64 @@ class HiddenMarkovModel:
 
 		return reduced_emission_probs
 
+	def transition_scores(self, history_scores):
+		"""
+		Returns a counter of s(state | best previous state) and a dict of
+		d[state] := new history for state
+		"""
+
+		# s(state | best_history) is built alongside the backpointers
+		# by walking over the incoming scores cross labels and storing
+		# the largest score for each label w/ the backpointer as we
+		# see it
+		transition_scores = Counter()
+		transition_scores.default = float("-inf")
+		backpointers = dict()
+
+		for history, score in history_scores:
+			for label in self.labels:
+				
+
+		return history_scores
+
 	def score(self, labeled_sequence, debug=False):
 		score = 0.0
 		last_score = 0.0
-		last_label = START_LABEL
+		last_labels = self.start_label
 
 		if debug: print "*** SCORE (%s) ***" % labeled_sequence
 
-		if START_LABEL in self.label_emissions[START_LABEL]: score += self.label_emissions[START_LABEL][START_LABEL]
-		else: score += self.emission_fallback_probs(START_LABEL)[START_LABEL]
+		# Start with the probability of emitting the start emission
+		score += self.emission_scores(START_LABEL)[START_LABEL]
 
 		for pos, (label, emission) in enumerate(labeled_sequence):
-			if emission in self.label_emissions:
-				score += self.label_emissions[emission][label]
-			else:
-				if debug: print "FALLBACK!"
-				score += self.emission_fallback_probs(emission)[label]
-			if debug: print " ++ EMISSION: %f" % (score-last_score)
-			score += self.transition[last_label][label]
-			if debug: print " ++ TRANSITION: %f" % (self.transition[last_label][label])
-			last_label = label
+			# Transition
+			incoming_scores = Counter()
+			incoming_scores.default = float("-inf")
+			incoming_scores[last_labels] = 0.0
+
+			score += self.transition_scores(incoming_scores)[label]
+			if debug: print " ++ TRANSITION (%s => %s): %f" % (last_labels, label, score - last_score)
+			t_score = score
+
+			# Emission
+			score += self.emission_scores(emission)[label]
+			if debug: print " ++ EMISSION: %f" % (score - t_score)
 
 			if debug: print "  @ %d ::  score after label %s emits %s: %f (change %f)" % (pos, label, emission, score, score - last_score)
+
+			# Bookkeeping
+			last_labels = self.push_label(last_labels, label)
 			last_score = score
 
-		score += self.transition[last_label][STOP_LABEL]
-		if STOP_LABEL in self.label_emissions[STOP_LABEL]: score += self.label_emissions[STOP_LABEL][STOP_LABEL]
-		else: score += self.emission_fallback_probs(STOP_LABEL)[STOP_LABEL]
+		incoming_scores = Counter()
+		incoming_scores.default = float("-inf")
+		incoming_scores[last_labels] = 0.0
+		# Add in the probability of transitioning to the stop state
+		score += self.transition_scores(incoming_scores)[STOP_LABEL]
+
+		# And the normalizing probability of emitting the stop emission
+		score += self.emission_scores(STOP_LABEL)[STOP_LABEL]
 
 		if debug: print "*** SCORE => %f ***" % score
 		
@@ -233,7 +274,7 @@ class HiddenMarkovModel:
 						backpointers[label] = last
 						curr_scores[label] = curr_score
 
-			curr_scores += self.expanded_emission_probs(set(curr_scores.iterkeys()), emission)
+			curr_scores += self.emission_scores(emission)
 
 			scores.append(curr_scores)
 
