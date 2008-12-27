@@ -14,7 +14,7 @@ START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
 
 class HiddenMarkovModel:
-	def __init__(self, label_history_size=1):
+	def __init__(self, label_history_size=2):
 		# Distribution over next state given current state
 		self.labels = list()
 		self.label_history_size = label_history_size
@@ -54,11 +54,11 @@ class HiddenMarkovModel:
 		for label, emission in sequence:
 			last_labels.append(label)
 			last_labels.pop(0)
-			
+
 			if label == START_LABEL:
 				last_labels = [START_LABEL for _ in xrange(label_history_size)]
 
-			all_labels = ('::'.join(last_labels[label_history_size-length-1:label_history_size-1])
+			all_labels = ('::'.join(last_labels[label_history_size-length-1:])
 						  for length in xrange(label_history_size))
 			yield (label, tuple(all_labels), emission)
 
@@ -124,7 +124,10 @@ class HiddenMarkovModel:
 
 		# Smooth transitions using fallback data
 		if use_linear_smoothing:
-			self.transition = HiddenMarkovModel._linear_smooth(self.labels, self.fallback_transition, self.label_history_size)
+			self.transition = \
+				HiddenMarkovModel._linear_smooth(self.labels,
+												 self.fallback_transition,
+												 self.label_history_size)
 		else:
 			self.transition = self.fallback_transition[-1]
 
@@ -177,25 +180,12 @@ class HiddenMarkovModel:
 
 		return reduced_emission_probs
 
-	def transition_scores(self, history_scores):
+	def transition_scores(self, label):
 		"""
-		Returns a counter of s(state | best previous state) and a dict of
-		d[state] := new history for state
+		Returns a counter of s(label | previous state)
 		"""
 
-		# s(state | best_history) is built alongside the backpointers
-		# by walking over the incoming scores cross labels and storing
-		# the largest score for each label w/ the backpointer as we
-		# see it
-		transition_scores = Counter()
-		transition_scores.default = float("-inf")
-		backpointers = dict()
-
-		for history, score in history_scores:
-			for label in self.labels:
-				
-
-		return history_scores
+		return self.reverse_transition[label]
 
 	def score(self, labeled_sequence, debug=False):
 		score = 0.0
@@ -209,11 +199,7 @@ class HiddenMarkovModel:
 
 		for pos, (label, emission) in enumerate(labeled_sequence):
 			# Transition
-			incoming_scores = Counter()
-			incoming_scores.default = float("-inf")
-			incoming_scores[last_labels] = 0.0
-
-			score += self.transition_scores(incoming_scores)[label]
+			score += self.transition_scores(label)[last_labels]
 			if debug: print " ++ TRANSITION (%s => %s): %f" % (last_labels, label, score - last_score)
 			t_score = score
 
@@ -227,11 +213,8 @@ class HiddenMarkovModel:
 			last_labels = self.push_label(last_labels, label)
 			last_score = score
 
-		incoming_scores = Counter()
-		incoming_scores.default = float("-inf")
-		incoming_scores[last_labels] = 0.0
 		# Add in the probability of transitioning to the stop state
-		score += self.transition_scores(incoming_scores)[STOP_LABEL]
+		score += self.transition_scores(STOP_LABEL)[last_labels]
 
 		# And the normalizing probability of emitting the stop emission
 		score += self.emission_scores(STOP_LABEL)[STOP_LABEL]
@@ -256,16 +239,13 @@ class HiddenMarkovModel:
 
 			if pos == 0:
 				# Pack curr_scores with just the reduced start history
-				curr_scores['::'.join(repeat(START_LABEL, self.label_history_size-1))] = 0.0
+				curr_scores[self.start_label] = 0.0
 			else:
 				# Transition probs (prob of arriving in this state)
 				prev_scores = scores[pos-1]
 
 				for label in self.labels:
-					# label is the possible current state label, so we need to
-					# consider transitions scores from any subset of reduced
-					# histories preceding label
-					transition_scores = prev_scores + self.reverse_transition[label]
+					transition_scores = prev_scores + self.transition_scores(label)
 
 					last = transition_scores.arg_max()
 					curr_score = transition_scores[last]
