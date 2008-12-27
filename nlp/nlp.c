@@ -614,7 +614,7 @@ cnter_repr(cnterobject *dd)
 	baserepr = PyDict_Type.tp_repr((PyObject *)dd);
 	if (baserepr == NULL)
 		return NULL;
-	result = PyString_FromFormat("counter(%s, rounded default: %d)", PyString_AS_STRING(baserepr), (int)dd->default_value);
+	result = PyString_FromFormat("counter(%s, default=%d)", PyString_AS_STRING(baserepr), (int)dd->default_value);
 	Py_DECREF(baserepr);
 	return result;
 }
