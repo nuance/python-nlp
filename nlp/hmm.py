@@ -174,14 +174,10 @@ class HiddenMarkovModel:
 		# e.g. say that P(DT | "A") = log(0.75), then we assume that
 		# P(NNP::DT | "A") = P(DT::DT | "A") = log(0.75)
 
-		reduced_emission_probs = None
-
 		if self.label_emissions.get(emission):
-			reduced_emission_probs = self.label_emissions[emission]
+			return self.label_emissions[emission]
 		else:
-			reduced_emission_probs = self.emission_fallback_probs(emission)
-
-		return reduced_emission_probs
+			return self.emission_fallback_probs(emission)
 
 	def transition_scores(self, label):
 		"""
@@ -258,7 +254,6 @@ class HiddenMarkovModel:
 						curr_scores[label] = curr_score
 
 			curr_scores += self.emission_scores(emission)
-
 			scores.append(curr_scores)
 
 		# Now decode

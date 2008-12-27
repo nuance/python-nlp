@@ -75,10 +75,10 @@ class ScoreLabelTest(unittest.TestCase):
 	def setUp(self):
 		self.defaults = {START_LABEL : float("-inf"), STOP_LABEL : float("-inf")}
 
-	def __test_identity_emission_uniform_transitions(self):
+	def test_identity_emission_uniform_transitions(self):
 #		print "Testing emission == state w/ uniform transitions chain: ",
 
-		model = HiddenMarkovModel()
+		model = HiddenMarkovModel(label_history_size=1)
 		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
 		self.set_defaults(model)
@@ -92,10 +92,10 @@ class ScoreLabelTest(unittest.TestCase):
 
 #		print "ok"
 
-	def __test_identity_emissions_non_uniform_transitions(self):
+	def test_identity_emissions_non_uniform_transitions(self):
 #		print "Testing emissions == labels with non-uniform transitions chain: ",
 
-		model = HiddenMarkovModel()
+		model = HiddenMarkovModel(label_history_size=1)
 		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
 		self.set_defaults(model)
@@ -111,10 +111,10 @@ class ScoreLabelTest(unittest.TestCase):
 
 #		print "ok"
 
-	def __test_biased_emissions_uniform_transitions(self):
+	def test_biased_emissions_uniform_transitions(self):
 #		print "Testing uniform transitions with self-biased emissions: ",
 
-		model = HiddenMarkovModel()
+		model = HiddenMarkovModel(label_history_size=1)
 		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
 		self.set_defaults(model)
@@ -130,10 +130,10 @@ class ScoreLabelTest(unittest.TestCase):
 
 #		print "ok"
 
-	def __test_biased_emissions_biased_transitions(self):
+	def test_biased_emissions_biased_transitions(self):
 #		print "Testing self-biased transitions with self-biased emissions: ",
 
-		model = HiddenMarkovModel()
+		model = HiddenMarkovModel(label_history_size=1)
 		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
 		self.set_defaults(model)
@@ -150,10 +150,10 @@ class ScoreLabelTest(unittest.TestCase):
 
 #		print "ok"
 
-	def __test_unk_emission(self):
+	def test_unk_emission(self):
 #		print "Testing UNK emission with emission == label and self-biased transitions: ",
 
-		model = HiddenMarkovModel()
+		model = HiddenMarkovModel(label_history_size=1)
 		model.labels = ('A', 'B', START_LABEL, STOP_LABEL)
 
 		self.set_defaults(model)
