@@ -196,8 +196,10 @@ class TrainingTest(unittest.TestCase):
 					('A', 'A'), ('A', 'A'),
 					('A', 'A'), ('A', 'A'))
 
-		model = HiddenMarkovModel()
-		model.train(sequence, label_history_size=2, fallback_model=None, use_linear_smoothing=False)
+		model = HiddenMarkovModel(label_history_size=2)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		raise pformat(model.transition.items())
 
 		self.assertEqual(len(model.transition), 2)
 		self.assertEqual(len(model.transition['A']), 2)
@@ -220,8 +222,8 @@ class TrainingTest(unittest.TestCase):
 					('A', 'A'), ('B', 'B'),
 					('A', 'A'), ('B', 'B'))
 
-		model = HiddenMarkovModel()
-		model.train(sequence, label_history_size=2, fallback_model=None, use_linear_smoothing=False)
+		model = HiddenMarkovModel(label_history_size=2)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
 		self.assertEqual(len(model.transition), 3)
 		self.assertEqual(len(model.transition['A']), 1)
@@ -247,8 +249,8 @@ class TrainingTest(unittest.TestCase):
 					('A', 'A'), ('B', 'B'),
 					('A', 'A'), ('B', 'B'))
 
-		model = HiddenMarkovModel()
-		model.train(sequence, label_history_size=3, fallback_model=None, use_linear_smoothing=False)
+		model = HiddenMarkovModel(label_history_size=3)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
 		self.assertEqual(len(model.transition), 4)
 		self.assertEqual(len(model.transition['A::B']), 2)
@@ -277,8 +279,8 @@ class TrainingTest(unittest.TestCase):
 					('A', 'A'), ('B', 'B'),
 					('A', 'A'), ('B', 'B'))
 
-		model = HiddenMarkovModel()
-		model.train(sequence, label_history_size=4, fallback_model=None, use_linear_smoothing=False)
+		model = HiddenMarkovModel(label_history_size=4)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
 		self.assertEqual(len(model.transition), 5)
 		self.assertEqual(len(model.transition['A::B::A']), 1)
