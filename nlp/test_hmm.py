@@ -1,3 +1,4 @@
+from itertools import cycle, izip, repeat
 from math import log, exp
 from pprint import pformat
 import unittest
@@ -187,6 +188,77 @@ class ScoreLabelTest(unittest.TestCase):
 #		print "ok"
 
 
+class TrainingLabellingTest(unittest.TestCase):
+	def test_one_history_single(self):
+		sequence = zip(repeat('A', 6), repeat('A', 6))
+
+		model = HiddenMarkovModel(label_history_size=1)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		self.assertEqual(model.label(list(repeat('A', 3))), list(repeat('A', 3)))
+		self.assertEqual(model.label(list(repeat('A', 6))), list(repeat('A', 6)))
+
+	def test_one_history_alternating(self):
+		alternating = lambda n: [(l, e) for l, e, _ in izip(cycle(('A', 'B')), cycle(('A', 'B')),
+															xrange(n))]
+		sequence = alternating(6)
+
+		model = HiddenMarkovModel(label_history_size=1)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		self.assertEqual(model.label(alternating(4)), [label for label, _ in alternating(4)])
+		self.assertEqual(model.label(alternating(6)), [label for label, _ in alternating(6)])
+
+	def test_two_history_single(self):
+		sequence = zip(repeat('A', 6), repeat('A', 6))
+
+		model = HiddenMarkovModel(label_history_size=2)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		self.assertEqual(model.label(list(repeat('A', 3))),
+						 ['<START>::A', 'A::A', 'A::A'])
+		self.assertEqual(model.label(list(repeat('A', 6))),
+						 ['<START>::A', 'A::A', 'A::A', 'A::A', 'A::A', 'A::A'])
+
+	def test_two_history_alternating(self):
+		alternating = lambda n: [(l, e) for l, e, _ in izip(cycle(('A', 'B')), cycle(('A', 'B')),
+															xrange(n))]
+		sequence = alternating(6)
+
+		model = HiddenMarkovModel(label_history_size=2)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		self.assertEqual(model.label(alternating(4)),
+						 ['<START>::A', 'A::B', 'B::A', 'A::B'])
+		self.assertEqual(model.label(alternating(6)),
+						 ['<START>::A', 'A::B', 'B::A', 'A::B', 'B::A', 'A::B'])
+
+	def test_three_history_single(self):
+		sequence = zip(repeat('A', 6), repeat('A', 6))
+
+		model = HiddenMarkovModel(label_history_size=3)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		self.assertEqual(model.label(list(repeat('A', 3))),
+						 ['<START>::<START>::A', '<START>::A::A', 'A::A::A'])
+		self.assertEqual(model.label(list(repeat('A', 6))),
+						 ['<START>::<START>::A', '<START>::A::A', 'A::A::A', 'A::A::A', 'A::A::A', 'A::A::A'])
+
+	def test_three_history_alternating(self):
+		alternating = lambda n: [(l, e) for l, e, _ in izip(cycle(('A', 'B')), cycle(('A', 'B')),
+															xrange(n))]
+		sequence = alternating(6)
+
+		model = HiddenMarkovModel(label_history_size=3)
+		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
+
+		self.assertEqual(model.label(alternating(4)),
+						 ['<START>::<START>::A', '<START>::A::B', 'A::B::A', 'B::A::B'])
+		self.assertEqual(model.label(alternating(6)),
+						 ['<START>::<START>::A', '<START>::A::B', 'A::B::A',
+						  'B::A::B', 'A::B::A', 'B::A::B'])
+
+
 class TrainingTest(unittest.TestCase):
 	""" Test that training produces expected probability outcomes
 	"""
@@ -199,15 +271,15 @@ class TrainingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=2)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(len(model.transition), 3)
+		self.assertEqual(len(model.transition), 4)
 		self.assertEqual(len(model.transition['A::A']), 2)
 		self.assertEqual(model.transition['A::A']['A::A'], log(4.0 / 5.0))
 
-		self.assertEqual(len(model.reverse_transition), 4)
+		self.assertEqual(len(model.reverse_transition), 5)
 		self.assertEqual(len(model.reverse_transition['A::A']), 2)
 		self.assertEqual(model.reverse_transition['A::A']['A::A'], log(4.0 / 5.0))
 
-		self.assertEqual(len(model.emission), 4)
+		self.assertEqual(len(model.emission), 5)
 		self.assertEqual(len(model.emission['A::A']), 1)
 		self.assertEqual(model.emission['A::A']['A'], 0.0)
 
@@ -223,13 +295,13 @@ class TrainingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=2)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(len(model.transition), 4)
+		self.assertEqual(len(model.transition), 5)
 		self.assertEqual(len(model.transition['A::B']), 2)
 		self.assertEqual(model.transition['A::B']['B::A'], log(2.0 / 3.0))
 		self.assertEqual(model.transition['B::A']['A::B'], 0.0)
 		self.assertEqual(model.transition['<START>::<START>']['<START>::A'], log(0.5))
 
-		self.assertEqual(len(model.reverse_transition), 5)
+		self.assertEqual(len(model.reverse_transition), 6)
 		self.assertEqual(len(model.reverse_transition['A::B']), 2)
 		self.assertEqual(model.reverse_transition['A::B']['B::A'], 0.0)
 		self.assertEqual(model.reverse_transition['B::A']['A::B'], log(2.0 / 3.0))
@@ -238,7 +310,7 @@ class TrainingTest(unittest.TestCase):
 		self.assertEqual(len(model.label_emissions['A']), 2)
 		self.assertEqual(model.label_emissions['A']['B::A'], log(2.0 / 3.0))
 
-		self.assertEqual(len(model.emission), 5)
+		self.assertEqual(len(model.emission), 6)
 		self.assertEqual(len(model.emission['B::A']), 1)
 		self.assertEqual(model.emission['B::A']['A'], 0.0)
 
@@ -250,7 +322,7 @@ class TrainingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=3)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(len(model.transition), 5)
+		self.assertEqual(len(model.transition), 7)
 		self.assertEqual(len(model.transition['B::A::B']), 2)
 		self.assertEqual(model.transition['<START>::<START>::<START>']['<START>::<START>::A'], log(0.5))
 		self.assertEqual(model.transition['<START>::<START>::A']['<START>::A::B'], 0.0)
@@ -258,7 +330,7 @@ class TrainingTest(unittest.TestCase):
 		self.assertEqual(model.transition['B::A::B']['A::B::<STOP>'], log(1.0 / 2.0))
 		self.assertEqual(model.transition['A::B::A']['B::A::B'], 0.0)
 
-		self.assertEqual(len(model.reverse_transition), 6)
+		self.assertEqual(len(model.reverse_transition), 8)
 		self.assertEqual(len(model.reverse_transition['A::B::A']), 2)
 		self.assertEqual(model.reverse_transition['<START>::A::B']['<START>::<START>::A'], 0.0)
 		self.assertEqual(model.reverse_transition['B::A::B']['A::B::A'], 0.0)
@@ -268,7 +340,7 @@ class TrainingTest(unittest.TestCase):
 		self.assertEqual(len(model.label_emissions['A']), 2)
 		self.assertEqual(model.label_emissions['A']['A::B::A'], log(2.0/3.0))
 
-		self.assertEqual(len(model.emission), 6)
+		self.assertEqual(len(model.emission), 8)
 		assert all(len(values) == 1 for values in model.emission.itervalues())
 		assert all(all(val == 0.0 for val in values.itervalues())
 				   for values in model.emission.itervalues())
@@ -281,7 +353,7 @@ class TrainingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=4)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(len(model.transition), 6)
+		self.assertEqual(len(model.transition), 9)
 		self.assertEqual(len(model.transition['<START>::A::B::A']), 1)
 		self.assertEqual(len(model.transition['A::B::A::B']), 2)
 		self.assertEqual(model.transition['<START>::<START>::<START>::<START>']['<START>::<START>::<START>::A'], log(0.5))

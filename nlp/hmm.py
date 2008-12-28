@@ -30,15 +30,16 @@ class HiddenMarkovModel:
 		# p(label | emission)
 		self.label_emissions = CounterMap()
 
-	@classmethod
-	def __pad_sequence(cls, sequence, pairs=False):
+	def __pad_sequence(self, sequence, pairs=False):
 		if pairs: yield (START_LABEL, START_LABEL)
 		else: yield START_LABEL
 
 		for item in sequence: yield item
 
-		if pairs: yield (STOP_LABEL, STOP_LABEL)
-		else: yield STOP_LABEL
+		# Pad the end so we'll decode the whole thing
+		for _ in xrange(self.label_history_size):
+			if pairs: yield (STOP_LABEL, STOP_LABEL)
+			else: yield STOP_LABEL
 
 	@classmethod
 	def _extend_labels(cls, sequence, label_history_size):
@@ -105,7 +106,7 @@ class HiddenMarkovModel:
 		self.fallback_transition = [CounterMap() for _ in xrange(self.label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(self.label_history_size)]
 
-		labeled_sequence = HiddenMarkovModel.__pad_sequence(labeled_sequence, pairs=True)
+		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
 		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, self.label_history_size+1))
 
 		# Load emission and transition counters from the raw data
@@ -224,6 +225,7 @@ class HiddenMarkovModel:
 
 	def label(self, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence
+		emission_length = len(emission_sequence)
 		emission_sequence = list(self.__pad_sequence(emission_sequence))
 
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
@@ -256,20 +258,28 @@ class HiddenMarkovModel:
 			curr_scores += self.emission_scores(emission)
 			scores.append(curr_scores)
 
+		if debug:
+			print
+			print pformat(list(enumerate(emission_sequence)))
+
 		# Now decode
 		states = list()
-		current = STOP_LABEL
+		current = self.stop_label
 		for pos in xrange(len(backtrack)-1, 0, -1):
 			if current not in backtrack[pos]:
-				current = STOP_LABEL
+				current = self.stop_label
 				states.append(current)
 				continue
 			if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
 			current = backtrack[pos][current]
 			states.append(current)
 
+		# Pop all the extra stop states
 		states.pop()
 		states.reverse()
+		if debug: print states
+		states = states[:emission_length]
+		if debug: print states
 
 		if return_score:
 			return states, scores[-1][STOP_LABEL]
