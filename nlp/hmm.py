@@ -269,11 +269,11 @@ class HiddenMarkovModel:
 		for pos in xrange(len(backtrack)-1, 0, -1):
 			if current not in backtrack[pos]:
 				current = self.stop_label
-				states.append(current)
+				states.append(current.split('::')[-1])
 				continue
 			if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
 			current = backtrack[pos][current]
-			states.append(current)
+			states.append(current.split('::')[-1])
 
 		# Pop all the extra stop states
 		states.pop()

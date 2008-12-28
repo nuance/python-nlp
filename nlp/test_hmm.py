@@ -215,10 +215,8 @@ class TrainingLabellingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=2)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(model.label(list(repeat('A', 3))),
-						 ['<START>::A', 'A::A', 'A::A'])
-		self.assertEqual(model.label(list(repeat('A', 6))),
-						 ['<START>::A', 'A::A', 'A::A', 'A::A', 'A::A', 'A::A'])
+		self.assertEqual(model.label(list(repeat('A', 3))), list(repeat('A', 3)))
+		self.assertEqual(model.label(list(repeat('A', 6))), list(repeat('A', 6)))
 
 	def test_two_history_alternating(self):
 		alternating = lambda n: [(l, e) for l, e, _ in izip(cycle(('A', 'B')), cycle(('A', 'B')),
@@ -228,10 +226,8 @@ class TrainingLabellingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=2)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(model.label(alternating(4)),
-						 ['<START>::A', 'A::B', 'B::A', 'A::B'])
-		self.assertEqual(model.label(alternating(6)),
-						 ['<START>::A', 'A::B', 'B::A', 'A::B', 'B::A', 'A::B'])
+		self.assertEqual(model.label(alternating(4)), [label for label, _ in alternating(4)])
+		self.assertEqual(model.label(alternating(6)), [label for label, _ in alternating(6)])
 
 	def test_three_history_single(self):
 		sequence = zip(repeat('A', 6), repeat('A', 6))
@@ -239,10 +235,8 @@ class TrainingLabellingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=3)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(model.label(list(repeat('A', 3))),
-						 ['<START>::<START>::A', '<START>::A::A', 'A::A::A'])
-		self.assertEqual(model.label(list(repeat('A', 6))),
-						 ['<START>::<START>::A', '<START>::A::A', 'A::A::A', 'A::A::A', 'A::A::A', 'A::A::A'])
+		self.assertEqual(model.label(list(repeat('A', 3))), list(repeat('A', 3)))
+		self.assertEqual(model.label(list(repeat('A', 6))), list(repeat('A', 6)))
 
 	def test_three_history_alternating(self):
 		alternating = lambda n: [(l, e) for l, e, _ in izip(cycle(('A', 'B')), cycle(('A', 'B')),
@@ -252,11 +246,8 @@ class TrainingLabellingTest(unittest.TestCase):
 		model = HiddenMarkovModel(label_history_size=3)
 		model.train(sequence, fallback_model=None, use_linear_smoothing=False)
 
-		self.assertEqual(model.label(alternating(4)),
-						 ['<START>::<START>::A', '<START>::A::B', 'A::B::A', 'B::A::B'])
-		self.assertEqual(model.label(alternating(6)),
-						 ['<START>::<START>::A', '<START>::A::B', 'A::B::A',
-						  'B::A::B', 'A::B::A', 'B::A::B'])
+		self.assertEqual(model.label(alternating(4)), [label for label, _ in alternating(4)])
+		self.assertEqual(model.label(alternating(6)), [label for label, _ in alternating(6)])
 
 
 class TrainingTest(unittest.TestCase):
