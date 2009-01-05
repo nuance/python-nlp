@@ -33,8 +33,11 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	try:
 		start = time()
 		pickle_file = open("pos_hmm.pickle")
-		training_stream, validation_stream, testing_sentences = pickle.load(pickle_file)
+		request_size, training_stream, validation_stream, testing_sentences = pickle.load(pickle_file)
 		pickle_file.close()
+
+		if request_size != dataset_size: raise IOError()
+
 		print "Unpickling: %f" % (time() - start)
 	except IOError:
 		# Load the dataset
@@ -59,7 +62,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 		stop = time()
 		print "Streaming: %f" % (stop-start)
 
-		serialized = (training_stream, validation_stream, testing_sentences)
+		serialized = (dataset_size, training_stream, validation_stream, testing_sentences)
 		pickle_file = open("pos_hmm.pickle", "w")
 		pickle.dump(serialized, pickle_file, protocol=-1)
 		pickle_file.close()
