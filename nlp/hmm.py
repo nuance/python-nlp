@@ -261,18 +261,21 @@ class HiddenMarkovModel:
 
 		if debug:
 			print
-			print pformat(list(enumerate(emission_sequence)))
+			print pformat(zip(enumerate(emission_sequence), backtrack))
 
 		# Now decode
 		states = list()
 		current = self.stop_label
 		for pos in xrange(len(backtrack)-1, 0, -1):
 			if current not in backtrack[pos]:
-				current = self.stop_label
-				states.append(current.split('::')[-1])
-				continue
-			if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
-			current = backtrack[pos][current]
+				if debug:
+					print "Pos %d :: %s =>" % (pos, current),
+					print scores[pos].arg_max(),
+					print "(no backpointer)"
+				current = scores[pos].arg_max()
+			else:
+				if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
+				current = backtrack[pos][current]
 			states.append(current.split('::')[-1])
 
 		# Pop all the extra stop states

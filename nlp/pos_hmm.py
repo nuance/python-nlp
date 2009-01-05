@@ -79,6 +79,9 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 
 	for correct_labels, emissions in testing_sentences:
 		guessed_labels = pos_tagger.label(emissions, debug=False)
+#		print "SENTENCE: %s" % emissions
+#		print "CORRECT: %s" % correct_labels
+#		print "GUESSED: %s" % guessed_labels
 		for correct, guessed in izip(correct_labels, guessed_labels):
 			if correct == START_LABEL or correct == STOP_LABEL: continue
 			if correct == guessed:
