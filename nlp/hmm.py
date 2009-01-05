@@ -12,6 +12,7 @@ from utilities import permutations, memoized
 
 START_LABEL = "<START>"
 STOP_LABEL = "<STOP>"
+UNK_LABEL = "<UNK>"
 
 class HiddenMarkovModel:
 	def __init__(self, label_history_size=2):
@@ -128,7 +129,7 @@ class HiddenMarkovModel:
 
 		# Smooth transitions using fallback data
 		# Doesn't work with label history size 1!
-		if use_linear_smoothing:
+		if use_linear_smoothing and self.label_history_size > 1:
 			self.transition = \
 				HiddenMarkovModel._linear_smooth(self.labels,
 												 self.fallback_transition,
@@ -148,8 +149,6 @@ class HiddenMarkovModel:
 			self.fallback_emissions_model = fallback_model()
 
 			emissions_training_pairs = ((emission_history[-1] + '::' + label, emission) for label, emission_history, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
-
-			print pformat(list(emissions_training_pairs)[-10:])
 
 			if fallback_training_limit:
 				emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
@@ -276,6 +275,10 @@ class HiddenMarkovModel:
 			else:
 				if debug: print "Pos %d :: %s => %s" % (pos, current, backtrack[pos][current])
 				current = backtrack[pos][current]
+
+			if not current:
+				current = UNK_LABEL
+
 			states.append(current.split('::')[-1])
 
 		# Pop all the extra stop states
