@@ -12,9 +12,18 @@
 
 #include "nlp.h"
 
+typedef enum {
+  false=0,
+  true
+} bool;
+
 typedef struct {
   PyDictObject dict;
   double default_value;
+
+  bool frozen;
+
+  double frozen_arg_max;
 } cnterobject;
 
 /* counter type *********************************************************/
@@ -239,7 +248,7 @@ cnter_arg_max(cnterobject *dd)
 			max = running;
 		}
 	}
-	
+
 	if (!arg_max) {
 		Py_INCREF(Py_None);
 		return Py_None;
@@ -538,6 +547,21 @@ CNTER_IOP(cnter_iadd, +)
 
 CNTER_IOP(cnter_isub, -)
 
+static PyObject *
+cnter_freeze(cnterobject *dd)
+{
+  if (dd->frozen) {
+	Py_RETURN_NONE;
+  }
+
+  dd->frozen_arg_max = PyFloat_AsDouble(cnter_arg_max(dd));
+  dd->frozen = true;
+
+  Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(cnter_freeze_doc, "D.freeze() -> computes some static statistics, sets D.frozen to True");
+
 static PyMethodDef cnter_methods[] = {
 	{"__missing__", (PyCFunction)cnter_missing, METH_O,
 	 cnter_missing_doc},
@@ -559,6 +583,7 @@ static PyMethodDef cnter_methods[] = {
 	 cnter_arg_max_doc},
 	{"max", (PyCFunction)cnter_max, METH_NOARGS, cnter_max_doc},
 	{"inner_product", (PyCFunction)cnter_inner_product, METH_O, cnter_inner_product_doc},
+	{"freeze", (PyCFunction)cnter_freeze, METH_NOARGS, cnter_freeze_doc},
 	{NULL}
 };
 
@@ -647,6 +672,7 @@ cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
   Py_DECREF(kwds);
 
   ((cnterobject*)self)->default_value = 0.0;
+  ((cnterobject*)self)->frozen = false;
 
   return result;
 }
