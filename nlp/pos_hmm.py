@@ -1,6 +1,7 @@
 from itertools import islice, izip
 import cPickle as pickle
 import sys
+from sys import stdout
 from time import time
 
 from hmm import HiddenMarkovModel, START_LABEL, STOP_LABEL
@@ -39,7 +40,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 		if request_size != dataset_size: raise IOError()
 
 		print "Unpickling: %f" % (time() - start)
-	except IOError:
+	except (IOError, EOFError):
 		# Load the dataset
 		print "Loading dataset"
 		start = time()
@@ -64,7 +65,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 
 		serialized = (dataset_size, training_stream, validation_stream, testing_sentences)
 		pickle_file = open("pos_hmm.pickle", "w")
-		pickle.dump(serialized, pickle_file, protocol=-1)
+		pickle.dump(serialized, pickle_file, protocol=pickle.HIGHEST_PROTOCOL)
 		pickle_file.close()
 
 	print "Training"
@@ -74,7 +75,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	stop = time()
 	print "Training: %f" % (stop-start)
 
-	print "Testing"
+	print "Testing on %d sentences" % len(testing_sentences)
 	start = time()
 
 	num_correct = 0
@@ -101,6 +102,13 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 			debug_label = lambda: pos_tagger.label(emissions, debug=True)
 			debug_score = lambda labels: pos_tagger.score(zip(labels, emissions), debug=False)
 			assert guessed_score >= correct_score or len(emissions) > 23, "Decoder sub-optimality (%f for guess, %f for correct)\n%s vs. %s" % (debug_score(guessed_labels), debug_score(correct_labels), debug_label(), correct_labels)
+
+			stdout.write("%1.0f" % (sum(1 for guess, correct in zip(guessed_labels, correct_labels) if guess == correct) / len(correct_labels) * 10))
+			stdout.flush()
+		else:
+			stdout.write(".")
+			stdout.flush()
+	stdout.write("\n")
 
 	stop = time()
 	print "Testing: %f" % (stop-start)
