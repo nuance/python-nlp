@@ -15,7 +15,7 @@ STOP_LABEL = "<STOP>"
 UNK_LABEL = "<UNK>"
 
 class HiddenMarkovModel:
-	def __init__(self, label_history_size=1):
+	def __init__(self, label_history_size=2):
 		# Distribution over next state given current state
 		self.labels = list()
 		self.label_history_size = label_history_size
