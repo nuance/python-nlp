@@ -1,8 +1,6 @@
-from math import exp
+__use_c_modules__ = True
 
-# c modules
-from maxent import get_log_probabilities as get_log_probs
-from maxent import get_expected_counts
+from math import exp
 
 # python modules
 from countermap import CounterMap
@@ -28,8 +26,13 @@ def slow_expected_counts(labeled_extracted_features, labels, log_probs):
 
 	return expected_counts
 
-#get_log_probs = slow_log_probs
-#get_expected_counts = lambda a, b, c, d: slow_expected_counts(a, b, c)
+if __use_c_modules__:
+	# c modules
+	from maxent import get_log_probabilities as get_log_probs
+	from maxent import get_expected_counts
+else:
+	get_log_probs = slow_log_probs
+	get_expected_counts = lambda a, b, c, d: slow_expected_counts(a, b, c)
 
 class MaxEntWeightFunction(Function):
 	sigma = 1.0
