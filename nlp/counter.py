@@ -1,14 +1,19 @@
 from collections import defaultdict
 from math import log, exp
 
-class Counter(defaultdict):
+class Counter(dict):
 	default = 0.0
 
+	def __missing__(self, key):
+		self[key] = self.default
+
+		return self[key]
+
 	def __init__(self):
-		super(Counter, self).__init__(lambda:self.default)
+		super(Counter, self).__init__()
 
 	def __init__(self, *args):
-		super(Counter, self).__init__(lambda:self.default, *args)
+		super(Counter, self).__init__(*args)
 
 	# I feel like there's a better way to do this... could use reduce, but
 	# that's about to be deprecated...
@@ -29,10 +34,10 @@ class Counter(defaultdict):
 
 		if sum == 0.0:
 			uniform = 1 / len(self.iteritems())
-			for key in self.iterkeys():
+			for key in self.iteritems():
 				self[key] = uniform
 
-		for (key, value) in self.iterkeys():
+		for (key, value) in self.iteritems():
 			self[key] /= sum
 
 	def log_normalize(self):
@@ -40,6 +45,9 @@ class Counter(defaultdict):
 
 		for key in self.iterkeys():
 			self[key] -= log_sum
+
+	def d_get(self, key):
+		return self.get(key, self.default)
 
 	def __str__(self):
 		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
@@ -55,7 +63,9 @@ class Counter(defaultdict):
 		keys.update(other.iterkeys())
 		
 		for key in keys:
-			self[key] *= other[key]
+			self[key] *= other.d_get(key)
+
+		self.default *= other.default
 
 		return self
 
@@ -66,34 +76,71 @@ class Counter(defaultdict):
 		
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
-		# FIXME: This is polluting the keys in self and other...
-		lval = Counter((key, self[key] * other[key]) for key in keys)
+
+		lval = Counter((key, self.d_get(key) * other.d_get(key)) for key in keys)
+		lval.default = self.default * other.default
 
 		return lval
 
 	def __iadd__(self, other):
+		if isinstance(other, (int, long, float)):
+			for key in self.keys():
+				self[key] += other
+			return self
+
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
 		
 		for key in keys:
-			self[key] += other[key]
+			self[key] += other.d_get(key)
+
+		self.default += other.default
 
 		return self
 
+	def __add__(self, other):
+		if isinstance(other, (int, long, float)):
+			return Counter((key, value + other) for (key, value) in self.iteritems())
+		
+		new = Counter()
+
+		keys = set(self.iterkeys())
+		keys.update(other.iterkeys())
+
+		for key in keys:
+			new[key] = self.d_get(key) + other.d_get(key)
+
+		new.default = self.default + other.default
+
+		return new
+
 	def __isub__(self, other):
+		if isinstance(other, (int, long, float)):
+			for key in self.keys():
+				self[key] -= other
+			return self
+
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
 		
 		for key in keys:
-			self[key] -= other[key]
+			self[key] -= other.d_get(key)
+
+		self.default -= other.default
 
 		return self
 
 	def __sub__(self, other):
+		if isinstance(other, (int, long, float)):
+			return Counter((key, value - other) for (key, value) in self.iteritems())
+		
 		keys = set(self.iterkeys())
 		keys.update(other.iterkeys())
 
-		return Counter((key, self[key] - other[key]) for key in keys)
+		new = Counter((key, self.d_get(key) - other.d_get(key)) for key in keys)
+		new.default = self.default - other.default
+
+		return new
 
 def test():
 	all_spam = Counter()
