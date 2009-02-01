@@ -4,7 +4,7 @@ from time import time
 
 class Minimizer:
 	min_iterations = 0
-	max_iterations = 5
+	max_iterations = 20
 	epsilon = 1e-10
 	tolerance = 1e-4
 	verbose = True

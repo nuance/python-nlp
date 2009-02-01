@@ -145,7 +145,7 @@ class MaximumEntropyClassifier:
 		for char in datum:
 			yield char
 			yield last_char+char
-#			yield last_last_char + last_char + char
+			yield last_last_char + last_char + char
 			last_last_char = last_char
 			last_char = char
 
@@ -157,7 +157,7 @@ class MaximumEntropyClassifier:
 		print "Building initial dictionary..."
 		initial_weights = CounterMap()
 
-		print "Labels: %d for %d features" % (len(self.labels), len(labeled_features))
+		print "Training on %d labelled features" % (len(labeled_features))
 
 		print "Minimizing..."
 		self.weights = Minimizer.minimize(weight_function, initial_weights, quiet=quiet)
@@ -165,17 +165,20 @@ class MaximumEntropyClassifier:
 	def train(self, labeled_data):
 		self.labels, self.features = set(), set()
 
-		print "Labeling data..."
+		print "Building features..."
 		labeled_features = []
 		for label, datum in labeled_data:
 			self.labels.add(label)
 			features = Counter()
+
 			for feature in self.extract_features(datum):
 				features[feature] += 1.0
 				self.features.add(feature)
+
 			labeled_features.append((label, features))
 
 		print "%d features" % len(self.features)
+		print "%d labels" % len(self.labels)
 			
 		self.train_with_features(labeled_features)
 
@@ -203,7 +206,6 @@ def read_delimited_data(file_name):
 
 	for line in delimited_file.readlines():
 		pair = line.rstrip().split("\t")
-		pair.reverse()
 		pairs.append(pair)
 
 	return pairs
@@ -215,7 +217,7 @@ def real_problem():
  	classifier = MaximumEntropyClassifier()
  	classifier.train(training_data)
 
- 	print "Correctly labeled %d of %d" % (sum(1 for (datum, label) in testing_data if classifier.label(datum) == label), len(testing_data))
+ 	print "Correctly labeled %d of %d" % (sum(1 for (label, datum) in testing_data if classifier.label(datum) == label), len(testing_data))
 
 	return classifier
 
