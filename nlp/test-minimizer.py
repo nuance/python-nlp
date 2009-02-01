@@ -26,7 +26,7 @@ class MinimizerTest(unittest.TestCase):
 		twodimfunc = TwoDimPolynomial()
 		start = Counter()
 		start['y'] = 0.0
-		min_point = Minimizer.minimize(twodimfunc, start)
+		min_point = Minimizer.minimize(twodimfunc, start, quiet=True)
 
 		self.assertAlmostEqual(min_point['y'], 2.5, 3)
 
@@ -53,7 +53,7 @@ class MinimizerTest(unittest.TestCase):
 		start['x'] = 0
 		start['y'] = 0
 
-		min_point = Minimizer.minimize(threedimfunc, start)
+		min_point = Minimizer.minimize(threedimfunc, start, quiet=True)
 
 		self.assertAlmostEqual(min_point['x'], -0.25, 3)
 		self.assertAlmostEqual(min_point['y'], 0.25, 3)

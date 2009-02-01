@@ -32,7 +32,7 @@ class Minimizer:
 
 			step_size *= step_size_mult
 			if step_size < cls.epsilon:
-				print "Line searcher underflow"
+				if verbose: print "Line searcher underflow"
 				return start
 
 			if verbose: print "Retrying with step size %f" % step_size
