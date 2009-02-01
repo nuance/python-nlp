@@ -30,7 +30,7 @@ class CounterMap(defaultdict):
 
 		try:
 			self.default = log(self.default)
-		except OverflowError:
+		except (OverflowError, ValueError):
 			self.default = float("-inf")
 
 	def linearize(self):

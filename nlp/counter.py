@@ -1,7 +1,7 @@
 from collections import defaultdict
 from math import log, exp
 
-__use_c_counter__ = False
+__use_c_counter__ = True
 
 if __use_c_counter__:
 	from nlp import counter as Counter

@@ -3,7 +3,6 @@ A bunch of random utility functions
 '''
 
 from counter import Counter
-from decorator import decorator
 from pprint import pformat
 
 try:
@@ -41,24 +40,29 @@ def getattr_(obj, name, default_thunk):
         setattr(obj, name, default)
         return default
 
-@decorator
+
 def counted(func, *args):
-	dic = getattr_(func, "counting_dic", Counter)
+	def wrapper(*args, **kwargs):
+		dic = getattr_(func, "counting_dic", Counter)
 
-	if 'print_counts' in args:
-		return pformat(dic)
+		if 'print_counts' in args:
+			return pformat(dic)
 
-	# counting_dic is created at the first call
-	dic[args[1:]] += 1
-	return func(*args)
+		# counting_dic is created at the first call
+		dic[args[1:]] += 1
+		return func(*args)
 
-@decorator
+	return wrapper
+
 def memoized(func, *args):
-    dic = getattr_(func, "memoize_dic", dict)
-    # memoize_dic is created at the first call
-    if args in dic:
-        return dic[args]
-    else:
-        result = func(*args)
-        dic[args] = result
-        return result
+	def wrapper(*args, **kwargs):
+		dic = getattr_(func, "memoize_dic", dict)
+		# memoize_dic is created at the first call
+		if args in dic:
+			return dic[args]
+		else:
+			result = func(*args)
+			dic[args] = result
+			return result
+
+	return wrapper
