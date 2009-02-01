@@ -2,7 +2,7 @@ from itertools import izip, repeat, chain
 
 from maxent import get_log_probabilities, get_expected_counts
 from countermap import CounterMap
-from nlp import counter as Counter
+from counter import Counter
 
 def cnter(l):
 	return Counter(izip(l, repeat(1.0, len(l))))

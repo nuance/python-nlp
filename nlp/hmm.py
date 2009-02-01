@@ -7,7 +7,7 @@ import random
 import sys
 
 from countermap import CounterMap
-from nlp import counter as Counter
+from counter import Counter
 from utilities import permutations, memoized
 
 START_LABEL = "<START>"

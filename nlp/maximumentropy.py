@@ -1,13 +1,12 @@
 from math import exp
 
 # c modules
-from nlp import counter as Counter
 from maxent import get_log_probabilities as get_log_probs
 from maxent import get_expected_counts
 
 # python modules
 from countermap import CounterMap
-#from counter import Counter
+from counter import Counter
 from function import Function
 from minimizer import Minimizer
 from itertools import izip, repeat

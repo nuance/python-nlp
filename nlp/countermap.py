@@ -3,28 +3,18 @@ from copy import copy
 from itertools import chain, izip, repeat
 from math import log
 
-from nlp import counter
 from counter import Counter
 
 class CounterMap(defaultdict):
-	def __init__(self, use_c_counter = True, default=0.0):
-		self.use_c_counter = use_c_counter
+	def __init__(self, default=0.0):
 		self.default = default
 		
-		if use_c_counter:
-			def counter_with_default():
-				ret = counter()
-				ret.default = self.default
-				return ret
+		def counter_with_default():
+			ret = Counter()
+			ret.default = self.default
+			return ret
 
-			super(CounterMap, self).__init__(counter_with_default)
-		else:
-			def counter_with_default():
-				ret = Counter()
-				ret.default = self.default
-				return ret
-
-			super(CounterMap, self).__init__(counter_with_default)
+		super(CounterMap, self).__init__(counter_with_default)
 
 	def normalize(self):
 		for key in self.iterkeys():
@@ -76,7 +66,7 @@ class CounterMap(defaultdict):
 		return ret
 
 	def scale(self, other):
-		ret = CounterMap(self.use_c_counter)
+		ret = CounterMap()
 
 		for key, counter in self.iteritems():
 			ret[key] = counter * other
@@ -87,7 +77,7 @@ class CounterMap(defaultdict):
 		if isinstance(other, (int, long, float)):
 			return self.scale(other)
 
-		ret = CounterMap(self.use_c_counter)
+		ret = CounterMap()
 
 		for key, counter in self.iteritems():
 			if key not in other: continue
@@ -96,7 +86,7 @@ class CounterMap(defaultdict):
 		return ret
 
 	def __add__(self, other):
-		ret = CounterMap(self.use_c_counter)
+		ret = CounterMap()
 
 		for (key, counter) in self.iteritems():
 			if key in other:
@@ -110,7 +100,7 @@ class CounterMap(defaultdict):
 		return ret
 
 	def __sub__(self, other):
-		ret = CounterMap(self.use_c_counter)
+		ret = CounterMap()
 
 		for (key, counter) in self.iteritems():
 			if key in other:

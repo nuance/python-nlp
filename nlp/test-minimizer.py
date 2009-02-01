@@ -2,7 +2,7 @@ from itertools import izip
 import unittest
 
 from minimizer import Minimizer
-from nlp import counter
+from counter import Counter
 from function import Function
 
 class MinimizerTest(unittest.TestCase):
@@ -14,7 +14,7 @@ class MinimizerTest(unittest.TestCase):
 			"""
 			def value_and_gradient(self, point):
 				value = 2 * (point['y']-5)**2 + 2 # 2(x-5)^2+2 => 2x^2 - 10x + 27
-				gradient = counter()
+				gradient = Counter()
 				gradient['y'] = 4 * point['y'] - 10
 				return (value, gradient)
 
@@ -24,7 +24,7 @@ class MinimizerTest(unittest.TestCase):
 		Minimizer.max_iterations = 1000
 
 		twodimfunc = TwoDimPolynomial()
-		start = counter()
+		start = Counter()
 		start['y'] = 0.0
 		min_point = Minimizer.minimize(twodimfunc, start)
 
@@ -40,7 +40,7 @@ class MinimizerTest(unittest.TestCase):
 			def value_and_gradient(self, point):
 				x, y = point['x'], point['y']
 				value = 2*x**2 - y - 2*y**2 + x
-				gradient = counter({'x' : 4*x+1, 'y' :  4*y-1})
+				gradient = Counter({'x' : 4*x+1, 'y' :  4*y-1})
 				return (value, gradient)
 
 			def value(self, point):
@@ -49,7 +49,7 @@ class MinimizerTest(unittest.TestCase):
 
 		threedimfunc = ThreeDimPolynomial()
 
-		start = counter()
+		start = Counter()
 		start['x'] = 0
 		start['y'] = 0
 

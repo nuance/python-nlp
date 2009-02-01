@@ -1,146 +1,163 @@
 from collections import defaultdict
 from math import log, exp
 
-class Counter(dict):
-	default = 0.0
+__use_c_counter__ = False
 
-	def __missing__(self, key):
-		self[key] = self.default
+if __use_c_counter__:
+	from nlp import counter as Counter
+	print "Using C counter"
+else:
+	print "Using python counter"
+	class Counter(dict):
+		default = 0.0
 
-		return self[key]
+		def __missing__(self, key):
+			self[key] = self.default
 
-	def __init__(self):
-		super(Counter, self).__init__()
+			return self[key]
 
-	def __init__(self, *args):
-		super(Counter, self).__init__(*args)
+		def __init__(self):
+			super(Counter, self).__init__()
 
-	# I feel like there's a better way to do this... could use reduce, but
-	# that's about to be deprecated...
-	def arg_max(self):
-		(max_key, max_value) = (None, None)
+		def __init__(self, *args):
+			super(Counter, self).__init__(*args)
 
-		for (key, value) in self.iteritems():
-			if not max_key or value > max_value:
-				(max_key, max_value) = (key, value)
+		# I feel like there's a better way to do this... could use reduce, but
+		# that's about to be deprecated...
+		def arg_max(self):
+			(max_key, max_value) = (None, None)
 
-		return max_key
+			for (key, value) in self.iteritems():
+				if not max_key or value > max_value:
+					(max_key, max_value) = (key, value)
 
-	def total_count(self):
-		return sum(self.itervalues())
+			return max_key
 
-	def normalize(self):
-		sum = self.total_count()
+		def total_count(self):
+			return sum(self.itervalues())
 
-		if sum == 0.0:
-			uniform = 1 / len(self.iteritems())
-			for key in self.iteritems():
-				self[key] = uniform
+		def normalize(self):
+			sum = self.total_count()
 
-		for (key, value) in self.iteritems():
-			self[key] /= sum
+			if sum == 0.0:
+				uniform = 1 / len(self.iteritems())
+				for key in self.iteritems():
+					self[key] = uniform
 
-	def log_normalize(self):
-		log_sum = log(sum(exp(val) for val in self.itervalues()))
+			for (key, value) in self.iteritems():
+				self[key] /= sum
 
-		for key in self.iterkeys():
-			self[key] -= log_sum
+		def log_normalize(self):
+			log_sum = log(sum(exp(val) for val in self.itervalues()))
 
-	def d_get(self, key):
-		return self.get(key, self.default)
+			for key in self.iterkeys():
+				self[key] -= log_sum
 
-	def __str__(self):
-		return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
+		def log(self):
+			for key in self.iterkeys():
+				self[key] = log(self[key])
 
-	# mul => element-wise multiplication
-	def __imul__(self, other):
-		if isinstance(other, (int, long, float)):
-			for key in self.keys():
-				self[key] *= other
+		def inner_product(self, other):
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
+
+			return sum((self.d_get(key) * other.d_get(key)) for key in keys)
+
+		def d_get(self, key):
+			return self.get(key, self.default)
+
+		def __str__(self):
+			return "[%s]" % (" ".join(["%s : %f," % (key, value) for (key, value) in self.iteritems()]))
+
+		# mul => element-wise multiplication
+		def __imul__(self, other):
+			if isinstance(other, (int, long, float)):
+				for key in self.keys():
+					self[key] *= other
+				return self
+
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
+
+			for key in keys:
+				self[key] *= other.d_get(key)
+
+			self.default *= other.default
+
 			return self
 
-		keys = set(self.iterkeys())
-		keys.update(other.iterkeys())
-		
-		for key in keys:
-			self[key] *= other.d_get(key)
+		# mul => element-wise multiplication
+		def __mul__(self, other):
+			if isinstance(other, (int, long, float)):
+				return Counter((key, value * other) for (key, value) in self.iteritems())
 
-		self.default *= other.default
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
 
-		return self
+			lval = Counter((key, self.d_get(key) * other.d_get(key)) for key in keys)
+			lval.default = self.default * other.default
 
-	# mul => element-wise multiplication
-	def __mul__(self, other):
-		if isinstance(other, (int, long, float)):
-			return Counter((key, value * other) for (key, value) in self.iteritems())
-		
-		keys = set(self.iterkeys())
-		keys.update(other.iterkeys())
+			return lval
 
-		lval = Counter((key, self.d_get(key) * other.d_get(key)) for key in keys)
-		lval.default = self.default * other.default
+		def __iadd__(self, other):
+			if isinstance(other, (int, long, float)):
+				for key in self.keys():
+					self[key] += other
+				return self
 
-		return lval
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
 
-	def __iadd__(self, other):
-		if isinstance(other, (int, long, float)):
-			for key in self.keys():
-				self[key] += other
+			for key in keys:
+				self[key] += other.d_get(key)
+
+			self.default += other.default
+
 			return self
 
-		keys = set(self.iterkeys())
-		keys.update(other.iterkeys())
-		
-		for key in keys:
-			self[key] += other.d_get(key)
+		def __add__(self, other):
+			if isinstance(other, (int, long, float)):
+				return Counter((key, value + other) for (key, value) in self.iteritems())
 
-		self.default += other.default
+			new = Counter()
 
-		return self
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
 
-	def __add__(self, other):
-		if isinstance(other, (int, long, float)):
-			return Counter((key, value + other) for (key, value) in self.iteritems())
-		
-		new = Counter()
+			for key in keys:
+				new[key] = self.d_get(key) + other.d_get(key)
 
-		keys = set(self.iterkeys())
-		keys.update(other.iterkeys())
+			new.default = self.default + other.default
 
-		for key in keys:
-			new[key] = self.d_get(key) + other.d_get(key)
+			return new
 
-		new.default = self.default + other.default
+		def __isub__(self, other):
+			if isinstance(other, (int, long, float)):
+				for key in self.keys():
+					self[key] -= other
+				return self
 
-		return new
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
 
-	def __isub__(self, other):
-		if isinstance(other, (int, long, float)):
-			for key in self.keys():
-				self[key] -= other
+			for key in keys:
+				self[key] -= other.d_get(key)
+
+			self.default -= other.default
+
 			return self
 
-		keys = set(self.iterkeys())
-		keys.update(other.iterkeys())
-		
-		for key in keys:
-			self[key] -= other.d_get(key)
+		def __sub__(self, other):
+			if isinstance(other, (int, long, float)):
+				return Counter((key, value - other) for (key, value) in self.iteritems())
 
-		self.default -= other.default
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
 
-		return self
+			new = Counter((key, self.d_get(key) - other.d_get(key)) for key in keys)
+			new.default = self.default - other.default
 
-	def __sub__(self, other):
-		if isinstance(other, (int, long, float)):
-			return Counter((key, value - other) for (key, value) in self.iteritems())
-		
-		keys = set(self.iterkeys())
-		keys.update(other.iterkeys())
-
-		new = Counter((key, self.d_get(key) - other.d_get(key)) for key in keys)
-		new.default = self.default - other.default
-
-		return new
+			return new
 
 
 if __name__ == "__main__":

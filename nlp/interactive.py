@@ -1,5 +1,5 @@
 import maximumentropy
-from nlp import counter as Counter
+from counter import Counter
 
 classifier = maximumentropy.toy_problem()
 

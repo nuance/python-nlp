@@ -2,7 +2,7 @@ from itertools import chain
 from math import exp, log
 import time
 
-from nlp import counter
+from counter import Counter
 import maxent
 import maximumentropy
 from countermap import CounterMap
@@ -11,11 +11,11 @@ import unittest
 
 class MaximumEntropyClassifierTestToyProblem(unittest.TestCase):
 	def setUp(self):
-		self.training_data = (('cat', counter((key, 1.0) for key in ('fuzzy', 'claws', 'small'))),
-							  ('bear', counter((key, 1.0) for key in ('fuzzy', 'claws', 'big'))),
-							  ('cat', counter((key, 1.0) for key in ('claws', 'medium'))))
-		self.test_data = (('cat', counter((key, 1.0) for key in ('claws', 'small'))),
-						  ('bear', counter((key, 1.0) for key in ('fuzzy',))))
+		self.training_data = (('cat', Counter((key, 1.0) for key in ('fuzzy', 'claws', 'small'))),
+							  ('bear', Counter((key, 1.0) for key in ('fuzzy', 'claws', 'big'))),
+							  ('cat', Counter((key, 1.0) for key in ('claws', 'medium'))))
+		self.test_data = (('cat', Counter((key, 1.0) for key in ('claws', 'small'))),
+						  ('bear', Counter((key, 1.0) for key in ('fuzzy',))))
 
 		self.classifier = maximumentropy.MaximumEntropyClassifier()
 		self.classifier.labels = set(key for key, _ in self.training_data)
@@ -41,16 +41,16 @@ class MaximumEntropyClassifierTestToyProblem(unittest.TestCase):
 
 class MaximumEntropyExpectedCountsTest(unittest.TestCase):
 	def setUp(self):
-		self.labeled_extracted_features = (('cat', counter((key, 1.0) for key in ('fuzzy', 'claws', 'small'))),
-										   ('bear', counter((key, 1.0) for key in ('fuzzy', 'claws', 'big'))),
-										   ('cat', counter((key, 1.0) for key in ('claws', 'medium'))))
+		self.labeled_extracted_features = (('cat', Counter((key, 1.0) for key in ('fuzzy', 'claws', 'small'))),
+										   ('bear', Counter((key, 1.0) for key in ('fuzzy', 'claws', 'big'))),
+										   ('cat', Counter((key, 1.0) for key in ('claws', 'medium'))))
 
 		self.labels = set(label for label, _ in self.labeled_extracted_features)
 
 	def test_fast_slow_equal(self):
 		weights = CounterMap()
-		weights['cat'] = counter((key, 1.0) for key in ('fuzzy', 'claws', 'small', 'medium', 'large'))
-		weights['bear'] = counter((key, 1.0) for key in ('fuzzy', 'claws', 'small', 'medium', 'large'))
+		weights['cat'] = Counter((key, 1.0) for key in ('fuzzy', 'claws', 'small', 'medium', 'large'))
+		weights['bear'] = Counter((key, 1.0) for key in ('fuzzy', 'claws', 'small', 'medium', 'large'))
 
 		log_probs = [maxent.get_log_probabilities(datum[1], weights, self.labels) for datum in self.labeled_extracted_features]
 
@@ -60,8 +60,8 @@ class MaximumEntropyExpectedCountsTest(unittest.TestCase):
 		self.assertEqual(slow_expectation, fast_expectation)
 
 		# And try again with different weights
-		weights['cat'] = counter((key, 1.0) for key in ('fuzzy', 'claws', 'small', 'medium'))
-		weights['bear'] = counter((key, 1.0) for key in ('fuzzy', 'claws', 'big'))
+		weights['cat'] = Counter((key, 1.0) for key in ('fuzzy', 'claws', 'small', 'medium'))
+		weights['bear'] = Counter((key, 1.0) for key in ('fuzzy', 'claws', 'big'))
 
 		log_probs = [maxent.get_log_probabilities(datum[1], weights, self.labels) for datum in self.labeled_extracted_features]
 
@@ -72,11 +72,11 @@ class MaximumEntropyExpectedCountsTest(unittest.TestCase):
 
 class MaximumEntropyLogProbsTest(unittest.TestCase):
 	def setUp(self):
-		self.features = counter((key, 1.0) for key in ['warm', 'fuzzy'])
+		self.features = Counter((key, 1.0) for key in ['warm', 'fuzzy'])
 
 		self.weights = CounterMap()
-		self.weights['dog'] = counter({'warm' : 2.0, 'fuzzy' : 0.5})
-		self.weights['cat'] = counter({'warm' : 0.5, 'fuzzy' : 2.0})
+		self.weights['dog'] = Counter({'warm' : 2.0, 'fuzzy' : 0.5})
+		self.weights['cat'] = Counter({'warm' : 0.5, 'fuzzy' : 2.0})
 
 		self.labels = set(self.weights.iterkeys())
 		self.logp = maxent.get_log_probabilities(self.features, self.weights, self.labels)
@@ -102,7 +102,7 @@ class MaximumEntropyLogProbsTest(unittest.TestCase):
 
 	def test_single_label(self):
 		weights = CounterMap()
-		weights['dog'] = counter({'warm' : 2.0, 'fuzzy' : 0.5})
+		weights['dog'] = Counter({'warm' : 2.0, 'fuzzy' : 0.5})
 		labels = set(weights.iterkeys())
 		logp = maxent.get_log_probabilities(self.features, weights, labels)
 
@@ -110,7 +110,7 @@ class MaximumEntropyLogProbsTest(unittest.TestCase):
 
 	def test_extraneous_label(self):
 		weights = CounterMap()
-		weights['dog'] = counter({'warm' : 2.0, 'fuzzy' : 0.5})
+		weights['dog'] = Counter({'warm' : 2.0, 'fuzzy' : 0.5})
 		labels = set(weights.iterkeys())
 		logp = maxent.get_log_probabilities(self.features, weights, labels)
 
@@ -118,7 +118,7 @@ class MaximumEntropyLogProbsTest(unittest.TestCase):
 
 	def test_zero_weight(self):
 		weights = CounterMap()
-		weights['dog'] = counter({'warm' : 2.0})
+		weights['dog'] = Counter({'warm' : 2.0})
 		labels = set(weights.iterkeys())
 		logp = maxent.get_log_probabilities(self.features, weights, labels)
 
@@ -126,13 +126,13 @@ class MaximumEntropyLogProbsTest(unittest.TestCase):
 		
 	def test_uneven_weights(self):
 		weights = CounterMap()
-		weights['dog'] = counter({'warm' : 2.0, 'fuzzy' : 1.0})
-		weights['cat'] = counter({'warm' : 1.0, 'fuzzy' : 1.0})
+		weights['dog'] = Counter({'warm' : 2.0, 'fuzzy' : 1.0})
+		weights['cat'] = Counter({'warm' : 1.0, 'fuzzy' : 1.0})
 		labels = set(weights.iterkeys())
 		logp = maxent.get_log_probabilities(self.features, weights, labels)
 
 		# construct scores
-		scores = counter()
+		scores = Counter()
 		scores['dog'] = 2.0 * 1.0 + 1.0 * 1.0
 		scores['cat'] = 1.0 * 1.0 + 1.0 * 1.0
 		scores.log_normalize()

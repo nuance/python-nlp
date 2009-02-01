@@ -2,14 +2,15 @@ from copy import copy
 from math import log
 import unittest
 
-from nlp import counter
+#from nlp import counter
+from counter import Counter
 
 class CounterTester(unittest.TestCase):
 	def setUp(self):
-		self.all_spam = counter()
+		self.all_spam = Counter()
 		self.all_spam['spam'] = 2
 
-		self.half_spam = counter()
+		self.half_spam = Counter()
 		self.half_spam['spam'] += 1
 		self.half_spam['ham'] += 1
 	
@@ -61,10 +62,10 @@ class CounterTester(unittest.TestCase):
 		self.failUnless(len(self.half_spam.keys()) == 2)
 
 	def test_multiplication(self):
-		bob = counter()
+		bob = Counter()
 		bob['spam'] = 1.0
 		bob['ham'] = 1.0
-		self.half_spam = counter()
+		self.half_spam = Counter()
 		self.half_spam['spam'] += 1
 		self.half_spam['ham'] += 1
 		self.half_spam.normalize()
@@ -82,10 +83,10 @@ class CounterTester(unittest.TestCase):
 		self.failUnless(len(jim.keys()) == 2)
 
 	def test_subtraction(self):
-		bob = counter()
+		bob = Counter()
 		bob['spam'] = 1.0
 		bob['ham'] = 1.0
-		jim = counter()
+		jim = Counter()
 		jim['spam'] = 0.5
 		jim['ham'] = 0.5
 		jim['tuna'] = 1.0
@@ -97,7 +98,7 @@ class CounterTester(unittest.TestCase):
 		self.failUnless(bob.arg_max() in ('spam', 'ham'))
 		self.failUnless(len(bob.keys()) == 3)
 		
-		foo = counter()
+		foo = Counter()
 		foo['spam'] = 1.0
 		foo['ham'] = 1.5
 		foo['cheese'] = 3.5
@@ -120,7 +121,7 @@ class CounterTester(unittest.TestCase):
 		self.failIf('cheese' in jim)
 
 	def test_log_normalize(self):
-		log_third_spam = counter()
+		log_third_spam = Counter()
 		log_third_spam['spam'] += log(1)
 		log_third_spam['ham'] += log(2)
 
@@ -130,10 +131,10 @@ class CounterTester(unittest.TestCase):
 		self.failUnless(log_third_spam['ham'] == log(2)-log(3))
 
 	def test_in_place_multiply(self):
-		amul = counter()
+		amul = Counter()
 		amul['bob'] = 2
 		amul['jim'] = 2
-		bmul = counter()
+		bmul = Counter()
 		bmul['bob'] = 4
 
 		amul *= bmul
@@ -145,9 +146,9 @@ class CounterTester(unittest.TestCase):
 		self.failUnless(bmul['jim'] == 0)
 
 	def test_in_place_add(self):
-		aadd = counter()
+		aadd = Counter()
 		aadd['bob'] = 2
-		badd = counter()
+		badd = Counter()
 		badd['bob'] = 4
 
 		aadd += badd
@@ -156,8 +157,8 @@ class CounterTester(unittest.TestCase):
 		self.failUnless(badd['bob'] == 4)
 
 	def test_exercise_gc(self):
-		base = counter()
-		sub = counter()
+		base = Counter()
+		sub = Counter()
 
 		base['cat'] += 1
 		base['dog'] += 1
@@ -176,11 +177,11 @@ class CounterTester(unittest.TestCase):
 	def test_add_mul_comprehensive(self):
 		# Testing default values
 		for operation in ("__add__", "__mul__"):
-			foo = counter()
+			foo = Counter()
 			foo.default = float("-inf")
 			foo['a'] = 1.0
 
-			bar = counter()
+			bar = Counter()
 			bar.default = float("-inf")
 			bar['b'] = 2.0
 
@@ -205,11 +206,11 @@ class CounterTester(unittest.TestCase):
 	def test_iadd_imul_comprehensive(self):
 		# Testing default values for in-place ops
 		for operation in ("__iadd__", "__imul__"):
-			foo = counter()
+			foo = Counter()
 			foo.default = float("-inf")
 			foo['a'] = 1.0
 
-			bar = counter()
+			bar = Counter()
 			bar.default = float("-inf")
 			bar['b'] = 2.0
 		
@@ -237,8 +238,8 @@ class CounterTester(unittest.TestCase):
 			self.failUnless(bar['missing'] == val)
 
 	def test_no_side_effects(self):
-		foo = counter()
-		bar = counter()
+		foo = Counter()
+		bar = Counter()
 		foo['a'] += 2.0
 		foo['b'] += 1.0
 

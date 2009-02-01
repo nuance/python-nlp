@@ -2,7 +2,7 @@
 A bunch of random utility functions
 '''
 
-from nlp import counter as Counter
+from counter import Counter
 from decorator import decorator
 from pprint import pformat
 
