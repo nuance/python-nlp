@@ -167,22 +167,23 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 	  return NULL;
 	}
 
-	feature_index = 0;
-	while (PyDict_Next(datum_features, &feature_index, &feature, &count)) {
-	  double featureCount = PyFloat_AsDouble(count);
+	label_index = 0;
+	label_num = 0;
+	while (_PySet_Next(labels, &label_index, &label)) {
+	  double prob = exp(NlpCounter_XGetDouble(feature_probs, label));
+	  PyObject *labelCounter;
 
-	  label_index = 0;
-	  label_num = 0;
-	  while (_PySet_Next(labels, &label_index, &label)) {
-		PyObject *newValue, *labelCounter;
-		double oldCount, logProb;
+	  feature_index = 0;
+	  labelCounter = label_counter_cache[label_num];
+
+	  while (PyDict_Next(datum_features, &feature_index, &feature, &count)) {
+		double featureCount = PyFloat_AsDouble(count);
+		PyObject *newValue;
+		double oldCount;
 		int ok;
 
-		labelCounter = label_counter_cache[label_num];
 		oldCount = NlpCounter_XGetDouble(labelCounter, feature);
-		logProb = NlpCounter_XGetDouble(feature_probs, label);
-
-		newValue = PyFloat_FromDouble(oldCount + exp(logProb) * featureCount);
+		newValue = PyFloat_FromDouble(oldCount + prob * featureCount);
 		ok = PyDict_SetItem(labelCounter, feature, newValue);
 
 		Py_DECREF(newValue);
@@ -193,9 +194,9 @@ static PyObject* maxent_expected_counts(PyObject *self, PyObject *args) {
 		  Py_XDECREF(labeled_extracted_features_tuple);
 		  return NULL;
 		}
-
-		label_num += 1;
 	  }
+
+	  label_num += 1;
 	}
   }
 
