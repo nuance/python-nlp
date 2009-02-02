@@ -8,6 +8,7 @@ import sys
 
 from countermap import CounterMap
 from counter import Counter
+import cyhmm
 from utilities import permutations, memoized
 
 START_LABEL = "<START>"
@@ -31,7 +32,7 @@ class HiddenMarkovModel:
 		# p(label | emission)
 		self.label_emissions = CounterMap()
 
-	def __pad_sequence(self, sequence, pairs=False):
+	def _pad_sequence(self, sequence, pairs=False):
 		if pairs: yield (START_LABEL, START_LABEL)
 		else: yield START_LABEL
 
@@ -107,7 +108,7 @@ class HiddenMarkovModel:
 		self.fallback_transition = [CounterMap() for _ in xrange(self.label_history_size)]
 		self.fallback_reverse_transition = [CounterMap() for _ in xrange(self.label_history_size)]
 
-		labeled_sequence = self.__pad_sequence(labeled_sequence, pairs=True)
+		labeled_sequence = self._pad_sequence(labeled_sequence, pairs=True)
 		labeled_sequence = list(HiddenMarkovModel._extend_labels(labeled_sequence, self.label_history_size+1))
 
 		# Load emission and transition counters from the raw data
@@ -228,7 +229,7 @@ class HiddenMarkovModel:
 	def label(self, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_length = len(emission_sequence)
-		emission_sequence = list(self.__pad_sequence(emission_sequence))
+		emission_sequence = list(self._pad_sequence(emission_sequence))
 
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		backtrack = [dict() for state in emission_sequence]
