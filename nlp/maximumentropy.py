@@ -1,4 +1,4 @@
-__use_c_modules__ = True
+__maxent_functions__ = "cython"
 
 from math import exp
 
@@ -26,10 +26,14 @@ def slow_expected_counts(labeled_extracted_features, labels, log_probs):
 
 	return expected_counts
 
-if __use_c_modules__:
+if __maxent_functions__ == "C":
 	# c modules
 	from maxent import get_log_probabilities as get_log_probs
 	from maxent import get_expected_counts
+elif __maxent_functions__ == "cython":
+	import cymaxent
+	get_log_probs = cymaxent.log_probs
+	get_expected_counts = lambda a, b, c, d: cymaxent.expected_counts(a, b, c)
 else:
 	get_log_probs = slow_log_probs
 	get_expected_counts = lambda a, b, c, d: slow_expected_counts(a, b, c)
@@ -144,8 +148,8 @@ class MaximumEntropyClassifier:
 		last_char = ''
 		for char in datum:
 			yield char
-			yield last_char+char
-			yield last_last_char + last_char + char
+#			yield last_char+char
+#			yield last_last_char + last_char + char
 			last_last_char = last_char
 			last_char = char
 
