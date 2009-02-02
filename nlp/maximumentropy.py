@@ -1,4 +1,4 @@
-__maxent_functions__ = "cython"
+__maxent_functions__ = "C"
 
 from math import exp
 

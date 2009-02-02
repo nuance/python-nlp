@@ -37,16 +37,6 @@ def expected_counts(labeled_extracted_features, labels, log_probs):
 				cnt = datum_features[feature]
 				expected_counts[label][feature] += label_weight * cnt
 
-# 		for feature in iter(datum_features):
-# 			cnt = datum_features[feature]
-
-# 			for label in iter(labels):
-# 				expected_counts[label][feature] += exp(log_probs[index][label]) * cnt
-
 		index += 1
-# 	for (index, (_, datum_features)) in enumerate(labeled_extracted_features):
-# 		for (feature, cnt) in datum_features.iteritems():
-# 			for label in labels:
-# 				expected_counts[label][feature] += exp(log_probs[index][label]) * cnt
 
 	return expected_counts
