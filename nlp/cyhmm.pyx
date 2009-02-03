@@ -33,71 +33,101 @@ cdef class CyHMM:
 		self.idx_label = list()
 
 		for idx, label in enumerate(labels):
-			label_idx[label] = idx
-			idx_label[idx] = label
+			self.label_idx[label] = idx
+			self.idx_label[idx] = label
 
-		label_follows = <bool_ **>malloc(len(labels) * sizeof(bool_*))
+		self.label_follows = <bool_ **>malloc(len(labels) * sizeof(bool_*))
 		for label in label_transitions:
 			lbl = label_idx[label]
-			label_follows[lbl] = <bool_ *>malloc(len(labels) * sizeof(bool_))
+			self.label_follows[lbl] = <bool_ *>malloc(len(labels) * sizeof(bool_))
 
 			for l in range(len(labels)):
 				ls = idx_label[l]
-				if ls in label_transitions[label]:
-					label_follows[lbl][l] = true
-				else:
-					label_follows[lbl][l] = false
+				self.label_follows[lbl][l] = int(bool(ls in label_transitions[label]))
 
-		transition_idx_scores = <double **>malloc(len(labels) * sizeof(double*))
+		self.transition_idx_scores = <double **>malloc(len(labels) * sizeof(double*))
 		for transition in transition_scores:
 			t_idx = label_idx[transition]
-			transition_idx_scores[t_idx] = <double *>malloc(len(labels) * sizeof(double))
+			self.transition_idx_scores[t_idx] = <double *>malloc(len(labels) * sizeof(double))
 
 			for next in transition_scores[transition]:
 				n_idx = label_idx[next]
-				transition_idx_scores[t_idx][n_idx] = transition_scores[transition][next]
+				self.transition_idx_scores[t_idx][n_idx] = transition_scores[transition][next]
 
-		return label_idx, emission_idx, label_follows, transition_idx_scores
+	cdef void add_score_vectors(double *dst, double *a, double *b, int length):
+		for i in range(length):
+			dst[i] = a[i] + b[i]
 
-	cdef object forward(self, object hmm, object emission_sequence):
+	cdef int** forward(self, object hmm, int[] emission_sequence, int emissions):
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
-		backtrack = [dict() for state in emission_sequence]
-		# Scores should contain counters with reduced histories as keys (so if
-		# history is STATE1::STATE2::STATE3, key is STATE2::STATE3)
-		scores = list()
+		cdef int **backpointers = <int**>malloc(emissions * sizeof(int*))
+		cdef size_t scores_len = self.label_count * sizeof(double)
 
-		for pos, (emission, backpointers) in enumerate(izip(emission_sequence, backtrack)):
-			curr_scores = Counter()
-			curr_scores.default = float("-inf")
+		# These two should really be outside of the forward def'n
+		cdef double *zero_scores = <double*>malloc(scores_len)
+		cdef double ninf = log(0)
 
-			if pos == 0:
-				# Pack curr_scores with just the reduced start history
-				curr_scores[hmm.start_label] = 0.0
-			else:
-				# Transition probs (prob of arriving in this state)
-				prev_scores = scores[pos-1]
+		for i in range(scores_len):
+			zero_scores[i] = ninf
 
-				for label in hmm.labels:
-					transition_scores = prev_scores + hmm.transition_scores(label)
+		cdef double *curr_scores, *prev_scores
+		memcpy(prev_scores, zero_scores, scores_len)
 
-					last = transition_scores.arg_max()
-					curr_score = transition_scores[last]
+		cdef double *label_scores = <double*> malloc(scores_len)
 
-					if curr_score > float("-inf"):
-						backpointers[label] = last
-						curr_scores[label] = curr_score
+		# Manually unroll first iteration so we don't risk branch mispredict
+		# (indented to signify it really belongs below)
+			# Pack curr_scores with just the reduced start history
+			prev_scores[self.label_idx[hmm.start_label]] = 0.0
 
-			curr_scores += hmm.emission_scores(emission)
-			scores.append(curr_scores)
+		for pos in range(1, emissions):
+			# loop vars
+			backtrack = backpointers[pos]
+			emission = emission_sequence[pos]
 
-		return scores, backtrack
+			# Wipe out scores
+			memcpy(curr_scores, zero_scores, scores_len)
+
+			for label in range(self.label_count):
+				# Transition scores
+				add_score_vectors(label_scores, prev_scores, self.transition_idx_scores[label], self.label_count)
+
+				# Pick max / argmax
+				cdef int last_label
+				cdef double score = ninf
+
+				for i in range(self.label_count):
+					if label_scores[i] > score:
+						last_label = i
+						score = label_scores[i]
+
+				backtrack[label] = last_label
+				curr_scores[label] = score
+
+			emission_scores = hmm.emission_scores(emission)
+			for label in emission_scores:
+				label_idx = self.label_idx[label]
+				score = emission_scores[label]
+				curr_scores[label_idx] += score
+
+			# And set up for the next iteration
+			swap = prev_scores
+			prev_scores = curr_scores
+			curr_scores = swap # will be obliterated in the beginning of the loop
+
+		free(curr_scores)
+		free(prev_scores)
+		free(zero_scores)
+		free(label_scores)
+
+		return backpointers
 
 	def label(self, hmm, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_length = len(emission_sequence)
 		emission_sequence = list(hmm._pad_sequence(emission_sequence))
 
-		scores, backtrack = forward(hmm, emission_sequence)
+		backtrack = forward(hmm, emission_sequence)
 
 		# Now decode
 		states = list()
