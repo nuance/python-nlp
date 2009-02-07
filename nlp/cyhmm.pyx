@@ -41,7 +41,11 @@ cdef class CyHMM:
 
 			for next in labels:
 				n_idx = self.label_idx[next]
-				self.transition_idx_scores[t_idx][n_idx] = transition_scores[transition][next]
+				if transition in transition_scores and next in transition_scores[transition]:
+					self.transition_idx_scores[t_idx][n_idx] = transition_scores[transition][next]
+				else:
+					self.transition_idx_scores[t_idx][n_idx] = float("-inf")
+
 
 	cdef void add_score_vectors(CyHMM self, double *dst, double *a, double *b, int length):
 		print "hello"
