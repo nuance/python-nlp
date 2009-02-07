@@ -156,6 +156,9 @@ class HiddenMarkovModel:
 
 			self.fallback_emissions_model.train(emissions_training_pairs)
 
+		# Build the cython backing model
+		self.cyhmm = cyhmm.CyHMM(self.labels, self.transition)
+
 	def emission_fallback_probs(self, emission):
 		if self.fallback_emissions_model:
 			return self.fallback_emissions_model.label_distribution(emission)
@@ -227,6 +230,9 @@ class HiddenMarkovModel:
 		return score
 
 	def label(self, emission_sequence, debug=False, return_score=False):
+		return self.cyhmm.label(self, emission_sequence)
+
+	def _label(self, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence
 		emission_length = len(emission_sequence)
 		emission_sequence = list(self._pad_sequence(emission_sequence))
