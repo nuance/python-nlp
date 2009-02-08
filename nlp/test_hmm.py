@@ -59,13 +59,15 @@ class ScoreLabelTest(unittest.TestCase):
 					model.label_emissions[emission][label] = log(1.0 / (3.0 * float(len(model.labels)-1)))
 
 	def _test_label(self, model, emissions, score, labels=None, debug=False):
+		model._post_training()
+
 		if debug: print
 		if not labels: labels = emissions
 
 		if debug: print "Emission-Labels: %s" % zip(emissions, labels)
 		guessed_labels, labelling_score = model.label(emissions, debug=debug, return_score=True)
 		if debug: print "Guessed labels: %s" % guessed_labels
-		self.assertEqual(sum(label == emission for label, emission in zip(guessed_labels, labels)), len(emissions))
+		self.assertEqual(guessed_labels, labels)
 		
 		if debug: print "Score: %f" % score
 		guessed_score = model.score(zip(guessed_labels, emissions), debug=debug)

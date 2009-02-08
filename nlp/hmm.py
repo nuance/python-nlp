@@ -1,5 +1,7 @@
 # Simple HMM implementation. Test code focuses on discrete signal reconstruction.
 
+__using_cython_viterbi__ = True
+
 from itertools import izip, islice, repeat
 from math import log, exp
 from pprint import pformat
@@ -156,8 +158,12 @@ class HiddenMarkovModel:
 
 			self.fallback_emissions_model.train(emissions_training_pairs)
 
+		self._post_training()
+
+	def _post_training(self):
 		# Build the cython backing model
-		self.cyhmm = cyhmm.CyHMM(self.labels, self.transition)
+		if __using_cython_viterbi__:
+			self.cyhmm = cyhmm.CyHMM(self.labels, self.reverse_transition)
 
 	def emission_fallback_probs(self, emission):
 		if self.fallback_emissions_model:
@@ -230,7 +236,16 @@ class HiddenMarkovModel:
 		return score
 
 	def label(self, emission_sequence, debug=False, return_score=False):
-		return self.cyhmm.label(self, emission_sequence)
+		if __using_cython_viterbi__:
+			labelling = self.cyhmm.label(self, emission_sequence, debug=debug)
+
+			if return_score:
+				score = self.score(zip(labelling, emission_sequence))
+				return labelling, score
+
+			return labelling
+		else:
+			return self._label(emission_sequence, debug=debug, return_score=return_score)
 
 	def _label(self, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence

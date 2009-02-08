@@ -46,18 +46,11 @@ cdef class CyHMM:
 				else:
 					self.transition_idx_scores[t_idx][n_idx] = float("-inf")
 
-
 	cdef void add_score_vectors(CyHMM self, double *dst, double *a, double *b, int length):
-		print "hello"
 		for i in range(length):
-			print "hi"
-#			print "a[i] = %f" % a[i]
-#			print "b[i] = %f" % b[i]
-#			print "dst[i] = %f" % dst[i]
 			dst[i] = a[i] + b[i]
-#			print "dst[i] = %f" % dst[i]
 
-	cdef int** forward(CyHMM self, object hmm, object emission_sequence):
+	cdef int** forward(CyHMM self, object hmm, object emission_sequence, bool_ debug):
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		cdef int **backpointers = <int**>malloc(len(emission_sequence) * sizeof(int*))
 		cdef size_t scores_len = self.label_count * sizeof(double)
@@ -89,16 +82,27 @@ cdef class CyHMM:
 		cdef int *backtrack
 		cdef double score = ninf
 
+		if debug == true:
+			print "LABEL :: %s" % emission_sequence
+
 		for pos in range(1, len(emission_sequence)):
 			# loop vars
 			backpointers[pos] = <int*>malloc(self.label_count * sizeof(int))
 			backtrack = backpointers[pos]
 			emission = emission_sequence[pos]
 
+			if debug == true:
+				print "** ENTERING POS %d     :: %s" % (pos, emission)
+
 			# Wipe out scores
 			memcpy(curr_scores, zero_scores, scores_len)
+			
+			if debug == true:
+				print " >> PREVIOUS SCORES    :: %s" % [(self.idx_label[history], prev_scores[history]) for history in range(self.label_count) if prev_scores[history] > float("-inf")]
 
 			for label in range(self.label_count):
+				if debug == true:
+					print "    ++ LABEL          :: %s" % self.idx_label[label]
 				# Transition scores
 				self.add_score_vectors(label_scores, prev_scores, self.transition_idx_scores[label], self.label_count)
 
@@ -114,11 +118,23 @@ cdef class CyHMM:
 				backtrack[label] = last_label
 				curr_scores[label] = score
 
+			if debug == true:
+				print " >> PREVIOUS           :: %s" % [(self.idx_label[label], self.idx_label[backtrack[label]], prev_scores[backtrack[label]]) for label in range(self.label_count)]
+				print " ++ TRANSITIONS        ::",
+				if hmm.label_emissions.get(emission):
+					print ["%s => %s :: %f" % (self.idx_label[backtrack[label]], self.idx_label[label], curr_scores[label]) for label in range(self.label_count) if self.idx_label[label] in hmm.label_emissions[emission]]
+				else:
+					print ["%s => %s :: %f" % (self.idx_label[backtrack[label]], self.idx_label[label], curr_scores[label]) for label in range(self.label_count)]
+
 			emission_scores = hmm.emission_scores(emission)
-			for label in emission_scores:
-				label_idx = self.label_idx[label]
+			for label_idx in range(self.label_count):
+				label = self.idx_label[label_idx]
 				score = emission_scores[label]
 				curr_scores[label_idx] += score
+			if debug == true:
+				print " ++ EMISSION SCORES    :: %s" % emission_scores.items()
+
+			if debug == true: print "=> EXITING WITH SCORES :: %s" % [(self.idx_label[label], curr_scores[label]) for label in range(self.label_count) if curr_scores[label] > ninf]
 
 			# And set up for the next iteration
 			swap = prev_scores
@@ -134,18 +150,26 @@ cdef class CyHMM:
 
 	def label(self, hmm, emission_sequence, debug=False, return_score=False):
 		# This needs to perform viterbi decoding on the the emission sequence
+		emission_length = len(emission_sequence)
 		emission_sequence = list(hmm._pad_sequence(emission_sequence))
 
-		cdef int **backtrack = self.forward(hmm, emission_sequence)
+		cdef bool_ c_debug = false
+		if debug:
+			c_debug = true
+		cdef int **backtrack = self.forward(hmm, emission_sequence, c_debug)
 
 		# Now decode
 		states = list()
 		current = hmm.stop_label
 		current_idx = self.label_idx[current]
+		if debug:
+			print "Starting at stop label %s (idx %d)" % (current, current_idx)
 
 		for pos in xrange(len(emission_sequence)-1, 0, -1):
 			current_idx = backtrack[pos][current_idx]
 			current = self.idx_label[current_idx]
+			if debug:
+				print "pos %d => %s (idx %d)" % (pos, current, current_idx)
 			states.append(current.split('::')[-1])
 			free(backtrack[pos])
 
@@ -154,6 +178,6 @@ cdef class CyHMM:
 		# Pop all the extra stop states
 		states.pop()
 		states.reverse()
-		states = states[:len(emission_sequence)]
+		states = states[:emission_length]
 
 		return states
