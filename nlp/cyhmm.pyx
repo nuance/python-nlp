@@ -47,13 +47,15 @@ cdef class CyHMM:
 					self.transition_idx_scores[t_idx][n_idx] = float("-inf")
 
 	cdef void add_score_vectors(CyHMM self, double *dst, double *a, double *b, int length):
+		cdef int i
 		for i in range(length):
 			dst[i] = a[i] + b[i]
 
-	cdef int** forward(CyHMM self, object hmm, object emission_sequence, int *arg_maxes, bool_ debug):
+	cdef int** forward(CyHMM self, object hmm, object emission_sequence, int *arg_maxes, bool_ debug) except *:
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		cdef int **backpointers = <int**>malloc(len(emission_sequence) * sizeof(int*))
 		cdef size_t scores_len = self.label_count * sizeof(double)
+		cdef int pos, i, label_idx
 
 		# These two should really be outside of the forward def'n
 		cdef double *zero_scores = <double*>malloc(scores_len * sizeof(double))
@@ -102,11 +104,11 @@ cdef class CyHMM:
 			if debug == true:
 				print " >> PREVIOUS SCORES    :: %s" % [(self.idx_label[history], prev_scores[history]) for history in range(self.label_count) if prev_scores[history] > float("-inf")]
 
-			for label in range(self.label_count):
+			for label_idx in range(self.label_count):
 				if debug == true:
-					print "    ++ LABEL          :: %s" % self.idx_label[label]
+					print "    ++ LABEL          :: %s" % self.idx_label[label_idx]
 				# Transition scores
-				self.add_score_vectors(label_scores, prev_scores, self.transition_idx_scores[label], self.label_count)
+				self.add_score_vectors(label_scores, prev_scores, self.transition_idx_scores[label_idx], self.label_count)
 
 				# Pick max / argmax
 				last_label = self.label_count + 1
@@ -117,16 +119,16 @@ cdef class CyHMM:
 						last_label = i
 						score = label_scores[i]
 
-				backtrack[label] = last_label
-				curr_scores[label] = score
+				backtrack[label_idx] = last_label
+				curr_scores[label_idx] = score
 
 			if debug == true:
-				print " >> PREVIOUS           :: %s" % [(self.idx_label[label], self.idx_label[backtrack[label]], prev_scores[backtrack[label]]) for label in range(self.label_count)]
+				print " >> PREVIOUS           :: %s" % [(self.idx_label[label_idx], self.idx_label[backtrack[label_idx]], prev_scores[backtrack[label_idx]]) for label_idx in range(self.label_count)]
 				print " ++ TRANSITIONS        ::",
 				if hmm.label_emissions.get(emission):
-					print ["%s => %s :: %f" % (self.idx_label[backtrack[label]], self.idx_label[label], curr_scores[label]) for label in range(self.label_count) if self.idx_label[label] in hmm.label_emissions[emission]]
+					print ["%s => %s :: %f" % (self.idx_label[backtrack[label_idx]], self.idx_label[label_idx], curr_scores[label_idx]) for label_idx in range(self.label_count) if self.idx_label[label_idx] in hmm.label_emissions[emission]]
 				else:
-					print ["%s => %s :: %f" % (self.idx_label[backtrack[label]], self.idx_label[label], curr_scores[label]) for label in range(self.label_count)]
+					print ["%s => %s :: %f" % (self.idx_label[backtrack[label_idx]], self.idx_label[label_idx], curr_scores[label_idx]) for label_idx in range(self.label_count)]
 
 			emission_scores = hmm.emission_scores(emission)
 			arg_maxes[pos] = 0
@@ -167,6 +169,7 @@ cdef class CyHMM:
 
 		cdef int *arg_maxes = <int*>malloc(len(emission_sequence) * sizeof(int))
 		cdef int **backtrack = self.forward(hmm, emission_sequence, arg_maxes, c_debug)
+		cdef int pos, current_idx
 
 		# Now decode
 		states = list()
@@ -175,7 +178,7 @@ cdef class CyHMM:
 		if debug:
 			print "Starting at stop label %s (idx %d)" % (current, current_idx)
 
-		for pos in xrange(len(emission_sequence)-1, 0, -1):
+		for pos in range(len(emission_sequence)-1, 0, -1):
 			current_idx = backtrack[pos][current_idx]
 			free(backtrack[pos])
 
