@@ -58,8 +58,8 @@ cnter_copy(cnterobject *dd)
 	   whose class constructor has the same signature.  Subclasses that
 	   define a different constructor signature must override copy().
 	*/
-	return PyObject_CallFunctionObjArgs((PyObject *)((PyObject*)dd)->ob_type,
-					    dd, NULL);
+  return PyObject_CallFunctionObjArgs((PyObject *)((PyObject*)dd)->ob_type,
+									  PyFloat_FromDouble(dd->default_value), dd, NULL);
 }
 
 static PyObject *
