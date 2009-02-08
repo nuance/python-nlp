@@ -116,4 +116,4 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 	print "%d correct (%.3f%% of %d)" % (num_correct, 100.0 * float(num_correct) / float(num_correct + num_incorrect), num_correct + num_incorrect)
 
 if __name__ == "__main__":
-	pos_problem(sys.argv, fallback_model=NaiveBayesClassifier)
+	pos_problem(sys.argv, fallback_model=MaximumEntropyClassifier)

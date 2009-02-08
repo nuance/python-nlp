@@ -4,9 +4,11 @@ __using_cython_viterbi__ = True
 
 from itertools import izip, islice, repeat
 from math import log, exp
+import cPickle as pickle
 from pprint import pformat
 import random
 import sys
+from time import time
 
 from countermap import CounterMap
 from counter import Counter
@@ -149,14 +151,33 @@ class HiddenMarkovModel:
 
 		# Train the fallback model on the label-emission pairs
 		if fallback_model:
-			self.fallback_emissions_model = fallback_model()
+			try:
+				start = time()
+				pickle_file = open("fallback_model.pickle")
+				self.fallback_emissions_model, training_pairs_length = pickle.load(pickle_file)
+				pickle_file.close()
 
-			emissions_training_pairs = ((emission_history[-1] + '::' + label, emission) for label, emission_history, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL)
+				if fallback_training_limit and fallback_training_limit != training_pairs_length:
+					raise IOError()
+				elif not fallback_training_limit and len(labeled_sequence) != training_pairs_length:
+					raise IOError()
 
-			if fallback_training_limit:
-				emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
+				print "Unpickling fallback model: %f" % (time() - start)
+			except (IOError, EOFError), e:
+				print "Training fallback model"
+				self.fallback_emissions_model = fallback_model()
 
-			self.fallback_emissions_model.train(emissions_training_pairs)
+				emissions_training_pairs = [(emission_history[-1] + '::' + label, emission) for label, emission_history, emission in labeled_sequence if label != START_LABEL and label != STOP_LABEL]
+
+				if fallback_training_limit:
+					emissions_training_pairs = islice(emissions_training_pairs, fallback_training_limit)
+
+				self.fallback_emissions_model.train(emissions_training_pairs)
+
+				serialized = (self.fallback_emissions_model, len(labeled_sequence))
+				pickle_file = open("fallback_model.pickle", "w")
+				pickle.dump(serialized, pickle_file, protocol=pickle.HIGHEST_PROTOCOL)
+				pickle_file.close()
 
 		self._post_training()
 

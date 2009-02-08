@@ -87,16 +87,22 @@ cnter_reduce(cnterobject *dd)
 	   signature is compatible; the first argument must be the
 	   optional default_factory, defaulting to None.
 	*/
-	PyObject *items;
-	PyObject *result;
+	PyObject *items, *args, *result;
+
+	args = PyTuple_New(0);
+	if (args == NULL)
+	  return NULL;
+
 	items = PyObject_CallMethod((PyObject *)dd, "iteritems", "()");
 	if (items == NULL) {
-		Py_DECREF(items);
+		Py_DECREF(args);
 		return NULL;
 	}
-	result = PyTuple_Pack(4, dd->dict.ob_type,
-			      Py_None, Py_None, items);
+
+	result = PyTuple_Pack(5, Py_TYPE(dd), args, Py_None, Py_None, items);
+	Py_DECREF(args);
 	Py_DECREF(items);
+
 	return result;
 }
 

@@ -5,16 +5,17 @@ from math import log
 
 from counter import Counter
 
-class CounterMap(defaultdict):
-	def __init__(self, default=0.0):
-		self.default = default
-		
-		def counter_with_default():
-			ret = Counter()
-			ret.default = self.default
-			return ret
+class CounterMap(dict):
+	def __missing__(self, key):
+		ret = Counter()
+		ret.default = self.default
 
-		super(CounterMap, self).__init__(counter_with_default)
+		self[key] = ret
+		return ret
+
+	def __init__(self, default=0.0):
+		super(CounterMap, self).__init__()
+		self.default = default
 
 	def normalize(self):
 		for key in self.iterkeys():
