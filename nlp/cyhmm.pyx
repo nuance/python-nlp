@@ -50,7 +50,7 @@ cdef class CyHMM:
 		for i in range(length):
 			dst[i] = a[i] + b[i]
 
-	cdef int** forward(CyHMM self, object hmm, object emission_sequence, bool_ debug):
+	cdef int** forward(CyHMM self, object hmm, object emission_sequence, int *arg_maxes, bool_ debug):
 		# Backtracking pointers - backtrack[position] = {state : prev, ...}
 		cdef int **backpointers = <int**>malloc(len(emission_sequence) * sizeof(int*))
 		cdef size_t scores_len = self.label_count * sizeof(double)
@@ -81,6 +81,7 @@ cdef class CyHMM:
 		cdef int last_label
 		cdef int *backtrack
 		cdef double score = ninf
+		cdef double top_score = ninf
 
 		if debug == true:
 			print "LABEL :: %s" % emission_sequence
@@ -90,6 +91,7 @@ cdef class CyHMM:
 			backpointers[pos] = <int*>malloc(self.label_count * sizeof(int))
 			backtrack = backpointers[pos]
 			emission = emission_sequence[pos]
+			top_score = ninf
 
 			if debug == true:
 				print "** ENTERING POS %d     :: %s" % (pos, emission)
@@ -107,7 +109,7 @@ cdef class CyHMM:
 				self.add_score_vectors(label_scores, prev_scores, self.transition_idx_scores[label], self.label_count)
 
 				# Pick max / argmax
-				last_label = 0
+				last_label = self.label_count + 1
 				score = ninf
 
 				for i in range(self.label_count):
@@ -127,10 +129,16 @@ cdef class CyHMM:
 					print ["%s => %s :: %f" % (self.idx_label[backtrack[label]], self.idx_label[label], curr_scores[label]) for label in range(self.label_count)]
 
 			emission_scores = hmm.emission_scores(emission)
+			arg_maxes[pos] = 0
 			for label_idx in range(self.label_count):
 				label = self.idx_label[label_idx]
 				score = emission_scores[label]
 				curr_scores[label_idx] += score
+
+				if score > top_score:
+					top_score = score
+					arg_maxes[pos] = label_idx
+
 			if debug == true:
 				print " ++ EMISSION SCORES    :: %s" % emission_scores.items()
 
@@ -156,7 +164,9 @@ cdef class CyHMM:
 		cdef bool_ c_debug = false
 		if debug:
 			c_debug = true
-		cdef int **backtrack = self.forward(hmm, emission_sequence, c_debug)
+
+		cdef int *arg_maxes = <int*>malloc(len(emission_sequence) * sizeof(int))
+		cdef int **backtrack = self.forward(hmm, emission_sequence, arg_maxes, c_debug)
 
 		# Now decode
 		states = list()
@@ -167,16 +177,21 @@ cdef class CyHMM:
 
 		for pos in xrange(len(emission_sequence)-1, 0, -1):
 			current_idx = backtrack[pos][current_idx]
+			free(backtrack[pos])
+
+			if current_idx >= self.label_count:
+				current_idx = arg_maxes[pos]
+
 			current = self.idx_label[current_idx]
+
 			if debug:
 				print "pos %d => %s (idx %d)" % (pos, current, current_idx)
 			states.append(current.split('::')[-1])
-			free(backtrack[pos])
 
 		free(backtrack)
+		free(arg_maxes)
 
 		# Pop all the extra stop states
-		states.pop()
 		states.reverse()
 		states = states[:emission_length]
 
