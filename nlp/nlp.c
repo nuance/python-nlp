@@ -89,7 +89,8 @@ cnter_reduce(cnterobject *dd)
 	*/
 	PyObject *items, *args, *result;
 
-	args = PyTuple_New(0);
+	args = PyTuple_Pack(1, PyFloat_FromDouble(dd->default_value));
+
 	if (args == NULL)
 	  return NULL;
 
@@ -660,13 +661,25 @@ static int
 cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
   PyObject *newargs;
+  PyObject *newdefault = NULL;
 
   if (args == NULL || !PyTuple_Check(args))
 	newargs = PyTuple_New(0);
   else {
-	Py_INCREF(args);
-	newargs = args;
+	Py_ssize_t n = PyTuple_GET_SIZE(args);
+	if (n > 0) {
+	  newdefault = PyTuple_GET_ITEM(args, 0);
+	  if (!PyFloat_Check(newdefault)) {
+		PyErr_SetString(PyExc_TypeError,
+						"first argument must be float");                           
+		return -1;
+	  }
+	}
+	newargs = PySequence_GetSlice(args, 1, n);
   }
+
+  if (newargs == NULL)
+	return -1;
 
   if (kwds == NULL || !PyDict_Check(kwds))
 	kwds = PyDict_New();
@@ -677,7 +690,11 @@ cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
   Py_DECREF(newargs);
   Py_DECREF(kwds);
 
-  ((cnterobject*)self)->default_value = 0.0;
+  if (newdefault)
+	((cnterobject*)self)->default_value = PyFloat_AsDouble(newdefault);
+  else
+	((cnterobject*)self)->default_value = 0.0;
+
   ((cnterobject*)self)->frozen = false;
 
   return result;
