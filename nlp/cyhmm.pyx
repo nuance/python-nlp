@@ -23,6 +23,8 @@ cdef class CyHMM:
 	cdef double **transition_idx_scores
 	cdef int label_count
 
+	cdef double *zero_scores
+
 	def __init__(self, labels, transition_scores):
 	#	state = cyHMM()
 		self.label_idx = dict()
@@ -33,6 +35,13 @@ cdef class CyHMM:
 			self.idx_label.append(label)
 
 		self.label_count = len(labels)
+
+		cdef int i
+		cdef double ninf = log(0)
+		self.zero_scores = <double*>malloc(self.label_count * sizeof(double))
+
+		for i in range(self.label_count):
+			self.zero_scores[i] = ninf
 
 		self.transition_idx_scores = <double **>malloc(len(labels) * sizeof(double*))
 		for transition in labels:
@@ -58,19 +67,12 @@ cdef class CyHMM:
 		cdef int pos, i, label_idx
 
 		# These two should really be outside of the forward def'n
-		cdef double *zero_scores = <double*>malloc(scores_len * sizeof(double))
 		cdef double ninf = log(0)
-
-		for i in range(scores_len):
-			zero_scores[i] = ninf
-
 		cdef double *curr_scores, *prev_scores, *swap
 
 		curr_scores = <double*>malloc(scores_len * sizeof(double))
 		prev_scores = <double*>malloc(scores_len * sizeof(double))
-		memcpy(prev_scores, zero_scores, scores_len * sizeof(double))
-
-		cdef double *label_scores = <double*> malloc(scores_len * sizeof(double))
+		memcpy(prev_scores, self.zero_scores, scores_len * sizeof(double))
 
 		# Manually unroll first iteration so we don't risk branch mispredict
 		# (indented to signify it really belongs below)
@@ -83,6 +85,7 @@ cdef class CyHMM:
 		cdef int last_label
 		cdef int *backtrack
 		cdef double score = ninf
+		cdef double label_score = ninf
 		cdef double top_score = ninf
 
 		if debug == true:
@@ -99,36 +102,34 @@ cdef class CyHMM:
 				print "** ENTERING POS %d     :: %s" % (pos, emission)
 
 			# Wipe out scores
-			memcpy(curr_scores, zero_scores, scores_len)
+			memcpy(curr_scores, self.zero_scores, scores_len)
 			
 			if debug == true:
 				print " >> PREVIOUS SCORES    :: %s" % [(self.idx_label[history], prev_scores[history]) for history in range(self.label_count) if prev_scores[history] > float("-inf")]
 
 			for label_idx in range(self.label_count):
-				if debug == true:
-					print "    ++ LABEL          :: %s" % self.idx_label[label_idx]
-				# Transition scores
-				self.add_score_vectors(label_scores, prev_scores, self.transition_idx_scores[label_idx], self.label_count)
-
-				# Pick max / argmax
+# 				if debug == true:
+# 					print "    ++ LABEL          :: %s" % self.idx_label[label_idx]
+				# Pick max / argmax of sums
 				last_label = self.label_count + 1
 				score = ninf
 
 				for i in range(self.label_count):
-					if label_scores[i] > score:
+					label_score = prev_scores[i] + self.transition_idx_scores[label_idx][i]
+					if label_score > score:
 						last_label = i
-						score = label_scores[i]
+						score = label_score
 
 				backtrack[label_idx] = last_label
 				curr_scores[label_idx] = score
 
 			if debug == true:
-				print " >> PREVIOUS           :: %s" % [(self.idx_label[label_idx], self.idx_label[backtrack[label_idx]], prev_scores[backtrack[label_idx]]) for label_idx in range(self.label_count)]
+				print " >> PREVIOUS           :: %s" % [(self.idx_label[label_idx], self.idx_label[backtrack[label_idx]], prev_scores[backtrack[label_idx]]) for label_idx in range(self.label_count) if backtrack[label_idx] < self.label_count]
 				print " ++ TRANSITIONS        ::",
 				if hmm.label_emissions.get(emission):
-					print ["%s => %s :: %f" % (self.idx_label[backtrack[label_idx]], self.idx_label[label_idx], curr_scores[label_idx]) for label_idx in range(self.label_count) if self.idx_label[label_idx] in hmm.label_emissions[emission]]
+					print ["%s => %s :: %f" % (self.idx_label[backtrack[label_idx]], self.idx_label[label_idx], curr_scores[label_idx]) for label_idx in range(self.label_count) if self.idx_label[label_idx] in hmm.label_emissions[emission] and backtrack[label_idx] < self.label_count]
 				else:
-					print ["%s => %s :: %f" % (self.idx_label[backtrack[label_idx]], self.idx_label[label_idx], curr_scores[label_idx]) for label_idx in range(self.label_count)]
+					print ["%s => %s :: %f" % (self.idx_label[backtrack[label_idx]], self.idx_label[label_idx], curr_scores[label_idx]) for label_idx in range(self.label_count) if backtrack[label_idx] < self.label_count]
 
 			emission_scores = hmm.emission_scores(emission)
 			arg_maxes[pos] = 0
@@ -153,8 +154,6 @@ cdef class CyHMM:
 
 		free(curr_scores)
 		free(prev_scores)
-		free(zero_scores)
-		free(label_scores)
 
 		return backpointers
 
@@ -196,6 +195,7 @@ cdef class CyHMM:
 
 		# Pop all the extra stop states
 		states.reverse()
+		states = states[hmm.label_history_size:]
 		states = states[:emission_length]
 
 		return states

@@ -70,7 +70,7 @@ def pos_problem(arguments, fallback_model=None, fallback_training_limit=None):
 
 	print "Training"
 	start = time()
-	pos_tagger = HiddenMarkovModel()
+	pos_tagger = HiddenMarkovModel(label_history_size=2)
 	pos_tagger.train(training_stream[1:-2], fallback_model=fallback_model, fallback_training_limit=fallback_training_limit)
 	stop = time()
 	print "Training: %f" % (stop-start)
