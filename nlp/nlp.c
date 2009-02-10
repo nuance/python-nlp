@@ -100,7 +100,7 @@ cnter_reduce(cnterobject *dd)
 		return NULL;
 	}
 
-	result = PyTuple_Pack(5, Py_TYPE(dd), args, Py_None, Py_None, items);
+	result = PyTuple_Pack(5, ((PyObject*)dd)->ob_type, args, Py_None, Py_None, items);
 	Py_DECREF(args);
 	Py_DECREF(items);
 
