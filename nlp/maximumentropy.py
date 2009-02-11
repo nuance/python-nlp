@@ -1,5 +1,6 @@
 __maxent_functions__ = "C"
 
+from __future__ import with_statement
 from math import exp
 
 # python modules
@@ -205,12 +206,12 @@ class MaximumEntropyClassifier:
 		return log_probs
 
 def read_delimited_data(file_name):
-	delimited_file = open(file_name, "r")
 	pairs = list()
 
-	for line in delimited_file.readlines():
-		pair = line.rstrip().split("\t")
-		pairs.append(pair)
+	with open(file_name, "r") as delimited_file:
+		for line in delimited_file.readlines():
+			pair = line.rstrip().split("\t")
+			pairs.append(pair)
 
 	return pairs
 
