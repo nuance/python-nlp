@@ -1,6 +1,7 @@
+from __future__ import with_statement
+
 __maxent_functions__ = "C"
 
-from __future__ import with_statement
 from math import exp
 
 # python modules
