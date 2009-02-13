@@ -20,6 +20,9 @@ else:
 			super(Counter, self).__init__()
 
 		def __init__(self, *args):
+			if len(args) == 1 and isinstance(args[0], (int, long, float)):
+				self.default = args[0]
+				args = []
 			super(Counter, self).__init__(*args)
 
 		# I feel like there's a better way to do this... could use reduce, but

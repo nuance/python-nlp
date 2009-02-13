@@ -20,8 +20,14 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
     return NULL;
 
   // weights' elements will be checked during iteration
-  if (!NlpCounter_Check(features) || ! PyDict_Check(weights) || ! PyAnySet_Check(labels)) {
-	PyErr_SetString(PyExc_ValueError, "get_log_probabilities requres args: Counter, CounterMap, Set");
+  if (! PyDict_Check(features)) {
+	PyErr_SetString(PyExc_ValueError, "get_log_probabilities requires first arg of type Counter");
+	return NULL;
+  } else if (! PyDict_Check(weights)) {
+	PyErr_SetString(PyExc_ValueError, "get_log_probabilities requires second arg of type Countermap");
+	return NULL;
+  } else if (! PyAnySet_Check(labels)) {
+	PyErr_SetString(PyExc_ValueError, "get_log_probabilities requires third arg of type Set");
 	return NULL;
   }
 
@@ -48,7 +54,7 @@ static PyObject* maxent_log_probs(PyObject *self, PyObject *args) {
 	  }
 	}
 
-	if (!NlpCounter_Check(labelWeights)) {
+	if (!PyDict_Check(labelWeights)) {
 	  PyErr_SetString(PyExc_ValueError, "weights contains non-counter types");
 	  return NULL;
 	}

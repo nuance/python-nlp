@@ -58,8 +58,8 @@ cnter_copy(cnterobject *dd)
 	   whose class constructor has the same signature.  Subclasses that
 	   define a different constructor signature must override copy().
 	*/
-  return PyObject_CallFunctionObjArgs((PyObject *)((PyObject*)dd)->ob_type,
-									  PyFloat_FromDouble(dd->default_value), dd, NULL);
+  return PyObject_CallFunctionObjArgs((PyObject *)((PyObject*)dd)->ob_type, dd,
+									  PyFloat_FromDouble(dd->default_value), NULL);
 }
 
 static PyObject *
@@ -667,15 +667,35 @@ cnter_init(PyObject *self, PyObject *args, PyObject *kwds)
 	newargs = PyTuple_New(0);
   else {
 	Py_ssize_t n = PyTuple_GET_SIZE(args);
-	if (n > 0) {
+
+	if (n == 1) {
 	  newdefault = PyTuple_GET_ITEM(args, 0);
-	  if (!PyFloat_Check(newdefault)) {
+	  if (!(PyInt_Check(newdefault) || PyFloat_Check(newdefault) || PyLong_Check(newdefault))) {
+		newdefault = NULL;
+		newargs = args;
+		Py_INCREF(newargs);
+	  }
+	  else {
+		newargs = PyTuple_New(0);
+	  }
+	} else if (n == 2) {
+	  newdefault = PyTuple_GET_ITEM(args, 1);
+	  if (!(PyInt_Check(newdefault) || PyFloat_Check(newdefault) || PyLong_Check(newdefault))) {
 		PyErr_SetString(PyExc_TypeError,
-						"first argument must be float");                           
+						"second argument must be float");                           
 		return -1;
 	  }
+	  else {
+		newargs = PySequence_GetSlice(args, 0, 1);
+	  }
+	} else if (n == 0) {
+	  newargs = args;
+	  Py_INCREF(newargs);
+	} else {
+		PyErr_SetString(PyExc_TypeError,
+						"counter takes at most 2 arguments");                           
+		return -1;
 	}
-	newargs = PySequence_GetSlice(args, 1, n);
   }
 
   if (newargs == NULL)

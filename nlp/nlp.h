@@ -7,10 +7,7 @@ extern "C" {
 
 #define PyNlp_API_pointers 0
 
-  PyAPI_DATA(PyTypeObject) NlpCounter_Type;
-
-#define NlpCounter_Check(op) PyObject_TypeCheck(op, &NlpCounter_Type)
-#define NlpCounter_CheckExact(op) ((op)->ob_type == &NlpCounter_Type)
+PyAPI_DATA(PyTypeObject) NlpCounter_Type;
 
 #define NlpCounter_API_pointers 7
 
@@ -23,6 +20,9 @@ extern "C" {
   static double NlpCounter_XGetDouble(PyObject *cnter, PyObject *key);
   static int NlpCounter_SetDefault(PyObject *cnter, double new_default);
   static double NlpCounter_GetDefault(PyObject *cnter);
+
+#define NlpCounter_Check(op) PyObject_TypeCheck(op, &NlpCounter_Type)
+#define NlpCounter_CheckExact(op) ((op)->ob_type == &NlpCounter_Type)
 
 #else
 
