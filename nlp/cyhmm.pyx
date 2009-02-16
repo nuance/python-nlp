@@ -195,7 +195,7 @@ cdef class CyHMM:
 
 		# Pop all the extra stop states
 		states.reverse()
-		states = states[hmm.label_history_size:]
+		states = states[1:]
 		states = states[:emission_length]
 
 		return states

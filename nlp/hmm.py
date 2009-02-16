@@ -330,7 +330,7 @@ class HiddenMarkovModel:
 		# Pop all the extra start & stop states
 		states.reverse()
 		if debug: print states
-		states = states[self.label_history_size:]
+		states = states[1:]
 		states = states[:emission_length]
 		if debug: print states
 
