@@ -20,10 +20,15 @@ class NGramTest(unittest.TestCase):
 		# the equality test is split apart so it's easier to debug
 
 		# verify we extracted all the features we wanted
+
+	def test_one_gram(self):
+		test_string = "hello"
+
+		test_features = set(tuple(x) for x in features.ngrams(test_string, 1))
+		expected_features = set(tuple(x) for x in "hello")
+
 		for f in expected_features:
 			self.assertTrue(f in test_features)
-
-		# verify we didn't extract any extras
 		for f in test_features:
 			self.assertTrue(f in expected_features)
 

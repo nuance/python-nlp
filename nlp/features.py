@@ -11,7 +11,7 @@ def ngrams(datum, size, start_token=None, stop_token=None):
 
 	for chunk in datum:
 		for history in histories:
-			history.pop(0)
+			if len(history): history.pop(0)
 			history.append(chunk)
 			yield copy(history)
 
@@ -21,7 +21,7 @@ def ngrams(datum, size, start_token=None, stop_token=None):
 				if len(history) <= min_size + 1:
 					# size = 3, on sub_size 1, don't return '<STOP>' 3 times
 					continue
-				history.pop(0)
+				if len(history): history.pop(0)
 				history.append(stop_token)
 				yield copy(history)
 
