@@ -7,6 +7,7 @@ from math import exp
 # python modules
 from countermap import CounterMap
 from counter import Counter
+from features import ngrams
 from function import Function
 from minimizer import Minimizer
 from itertools import izip, repeat
@@ -143,18 +144,6 @@ class MaximumEntropyClassifier:
 	def get_log_probabilities(self, datum_features):
 		return get_log_probs(datum_features, self.weights, self.labels)
 	
-	def extract_features(self, datum):
-#		for word in datum.split():
-#			yield word
-		last_last_char = ''
-		last_char = ''
-		for char in datum:
-			yield char
-#			yield last_char+char
-#			yield last_last_char + last_char + char
-			last_last_char = last_char
-			last_char = char
-
 	def train_with_features(self, labeled_features, sigma=None, quiet=False):
 		print "Optimizing weights..."
 		weight_function = MaxEntWeightFunction(labeled_features, self.labels, self.features)
@@ -177,7 +166,7 @@ class MaximumEntropyClassifier:
 			self.labels.add(label)
 			features = Counter()
 
-			for feature in self.extract_features(datum):
+			for feature in ngrams(datum, 1):
 				features[feature] += 1.0
 				self.features.add(feature)
 
@@ -190,7 +179,7 @@ class MaximumEntropyClassifier:
 
 	def label(self, datum):
 		datum_features = Counter()
-		for feature in self.extract_features(datum):
+		for feature in ngrams(datum, 1):
 			datum_features[feature] += 1.0
 
 		log_probs = self.get_log_probabilities(datum_features)
@@ -199,7 +188,7 @@ class MaximumEntropyClassifier:
 		
 	def label_distribution(self, datum):
 		datum_features = Counter()
-		for feature in self.extract_features(datum):
+		for feature in ngrams(datum, 1):
 			datum_features[feature] += 1.0
 
 		log_probs = self.get_log_probabilities(datum_features)

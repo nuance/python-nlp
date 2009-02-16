@@ -1,26 +1,16 @@
 from copy import copy
+
 from countermap import CounterMap
+from features import ngrams
 
 class NaiveBayesClassifier:
-	def extract_features(self, datum):
-		# for word in datum.split():
-		# yield word
-		last_last_char = ''
-		last_char = ''
-		for char in datum:
-			yield char
-			yield last_char + char
-			yield last_last_char + last_char + char
-			last_last_char = last_char
-			last_char = char
-
 	def train(self, labeled_data):
 		self.feature_distribution = CounterMap()
 		labels = set()
 
 		for label, datum in labeled_data:
 			labels.add(label)
-			for feature in self.extract_features(datum):
+			for feature in ngrams(datum, 3)
 				self.feature_distribution[feature][label] += 1
 
 		for feature in self.feature_distribution.iterkeys():
@@ -32,7 +22,7 @@ class NaiveBayesClassifier:
 	def label_distribution(self, datum):
 		distribution = None
 
-		for feature in self.extract_features(datum):
+		for feature in ngrams(datum, 3):
 			if distribution:
 				distribution += self.feature_distribution[feature]
 			else:
@@ -45,7 +35,7 @@ class NaiveBayesClassifier:
 	def label(self, datum):
 		distribution = None
 
-		for feature in self.extract_features(datum):
+		for feature in ngrams(datum, 3):
 			if distribution:
 				distribution += self.feature_distribution[feature]
 			else:
