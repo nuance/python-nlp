@@ -24,3 +24,21 @@ def ngrams(datum, size, start_token=None, stop_token=None):
 				history.pop(0)
 				history.append(stop_token)
 				yield copy(history)
+
+def contexts(datum, context_size=2):
+	buffer = []
+	# this could be just .__iter__(), but f*cking strings are a special, non-standard case that have to work
+	datum = (i for i in datum)
+
+	# Fill up the buffer
+	for item in datum:
+		buffer.append(item)
+		if len(buffer) == context_size * 2 + 1: break
+
+	for item in datum:
+		yield (tuple(buffer[:context_size]), buffer[context_size], tuple(buffer[context_size+1:]))
+		buffer.pop(0)
+		buffer.append(item)
+
+	if len(buffer) == context_size * 2 + 1:
+		yield (tuple(buffer[:context_size]), buffer[context_size], tuple(buffer[context_size+1:]))

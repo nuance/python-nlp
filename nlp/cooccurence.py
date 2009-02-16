@@ -3,29 +3,9 @@ from itertools import chain
 import sys
 
 from countermap import CounterMap
+import features
 
 class CoOccurenceProblem(object):
-	@classmethod
-	def context_triples(cls, words, context_size=2):
-		buffer = []
-
-		words = words.__iter__()
-
-		# Fill up the buffer
-		for word in words:
-			buffer.append(word)
-
-			if len(buffer) == context_size * 2 + 1: break
-
-		for word in words:
-			yield (buffer[:context_size], buffer[context_size], buffer[context_size+1:])
-
-			buffer.pop(0)
-			buffer.append(word)
-
-		if len(buffer) == context_size * 2 + 1:
-			yield (buffer[:context_size], buffer[context_size], buffer[context_size+1:])
-
 	@classmethod
 	def gather_cooccurrence_counts(cls, triples):
 		pre_counts = CounterMap()
@@ -48,7 +28,7 @@ class CoOccurenceProblem(object):
 
 	def file_triples(self, lines):
 		for line in lines:
-			for triple in self.context_triples(line.rstrip().split()):
+			for triple in featurers.contexts(line.rstrip().split(), context_size=2):
 				yield triple
 
 	def run(self, paths):

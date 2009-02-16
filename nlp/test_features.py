@@ -28,5 +28,20 @@ class NGramTest(unittest.TestCase):
 			self.assertTrue(f in expected_features)
 
 
+class ContextTest(unittest.TestCase):
+	def test_three_context(self):
+		test_string = "godspeed"
+		test_features = set(tuple(x) for x in features.contexts(test_string, context_size=3))
+		expected_features = set([(('g', 'o', 'd'), 's', ('p', 'e', 'e')),
+								 (('o', 'd', 's'), 'p', ('e', 'e', 'd'))])
+		self.assertEqual(test_features, expected_features)
+
+	def test_one_context(self):
+		test_string = "hello"
+		test_features = set(tuple(x) for x in features.contexts(test_string, context_size=1))
+		expected_features = set([(('h',), 'e', ('l',)), (('l',), 'l', ('o',)), (('e',), 'l', ('l',))])
+		self.assertEqual(test_features, expected_features)
+
+
 if __name__ == "__main__":
 	unittest.main()
