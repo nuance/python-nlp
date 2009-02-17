@@ -98,6 +98,8 @@ class Minimizer:
 
 			# Line search in the direction found
 			if iteration == 0:
+				# Breaking out from the first value requires smaller steps in most cases,
+				# so don't overdo the step size
 				next_point = cls.__line_minimize(function, point, direction, step_size_mult=0.01)
 			else:
 				next_point = cls.__line_minimize(function, point, direction, step_size_mult=0.5)
