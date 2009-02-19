@@ -4,6 +4,7 @@ import datetime
 from itertools import chain
 import sys
 
+from counter import Counter
 from countermap import CounterMap
 import features
 
@@ -19,29 +20,53 @@ class CRPGibbsSampler(object):
 		self._gibbs_iterations = gibbs_iterations
 		self._data = data
 
+		self._concentration = 1.0
+
 		# These will be learned during the initial burn-in
-		self._cluster_params = None
+		self._clusters = []
 		self._datum_to_cluster = dict()
 		self._cluster_counts = CounterMap(default=float("-inf"))
 
 		# and run the burn in...
 		self.gibbs(burn_in_iterations)
 
+	def _update_cluster_params(self, cluster, added=None, removed=None):
+		assert (added or removed) and not (added and removed)
+
+		if added:
+			if cluster >= len(self._clusters):
+				cluster_params = [cluster, None, 1]
+				self._clusters.append(cluster_params)
+			else:
+				self._clusters[cluster][2] += 1
+		else:
+			assert cluster < len(self._clusters)
+			self._clusters[cluster][2] -= 1
+
 	def _remove_datum(self, datum):
-		cluster = self._datum_to_cluster[datum]
-		self._cluster_counts -= self._data[datum]
-		self._update_cluster_params(cluster)
+		cluster = self._datum_to_cluster.get(datum)
+		if not cluster: return
+		self._cluster_counts[cluster] -= self._data[datum]
+		self._update_cluster_params(cluster, removed=datum)
 
 		del self._datum_to_cluster[datum]
 
 	def _sample_datum(self, datum):
-		# TODO: implement this		
-		return None
+		probs = Counter()
+
+		for cluster, cluster_params, cluster_size in self._clusters:
+			# TODO: actually do this
+			probs[cluster] = cluster_size
+
+		probs[len(self._clusters)] = self._concentration
+		probs.normalize()
+
+		return probs.sample()
 
 	def _add_datum(self, datum, cluster):
 		self._datum_to_cluster[datum] = cluster
-		self._cluster_counts += self._data[datum]
-		self._update_cluster_params(cluster)
+		self._cluster_counts[cluster] += self._data[datum]
+		self._update_cluster_params(cluster, added=datum)
 
 	def gibbs(self, iterations=None):
 		# use gibbs sampling to find a sufficiently good labelling
@@ -50,9 +75,11 @@ class CRPGibbsSampler(object):
 			iterations = self._gibbs_iterations
 
 		for iteration in xrange(iterations):
-			print "*** Iteration %d starting (%s) ***" % (iteration, datetime.now())
-			if self._cluster_params:
-				print "    Likelihood: %f" % self.likelihood()
+			print "*** Iteration %d starting (%s) ***" % (iteration, datetime.datetime.now())
+			print self._datum_to_cluster
+
+			if self._clusters:
+				print "    Likelihood: %f" % self.log_likelihood()
 			for datum in self._data:
 				# resample cluster for this data, given all other data
 				# as fixed
@@ -64,16 +91,16 @@ class CRPGibbsSampler(object):
 				# and, finally, add it back in
 				self._add_datum(datum, cluster)
 
-		print "Finished Gibbs with likelihood: %f" % self.likelihood()
+		print "Finished Gibbs with likelihood: %f" % self.log_likelihood()
 
-	def likelihood(self):
+	def log_likelihood(self):
 		# evaluate the likelihood of the labelling (which is,
 		# conveniently, just the likelihood of the current mixture
 		# model)
 
 		# FIXME: This should really be cached for the last invocation
 		# TODO: implement this
-		pass
+		return -1.0
 
 class SynonymLearner(object):
 	def __init__(self):
@@ -81,7 +108,7 @@ class SynonymLearner(object):
 
 	def _file_triples(self, lines):
 		for line in lines:
-			for triple in features.contexts(line.rstrip().split(), context_size=2):
+			for triple in features.contexts(line.rstrip().split(), context_size=1):
 				yield triple
 
 	def _gather_colocation_counts(self, files):
@@ -112,7 +139,13 @@ class SynonymLearner(object):
 		full_counts += pre_counts
 		full_counts += post_counts
 
+		print full_counts
+
 		# and hand over work to the sampler
+		sampler = CRPGibbsSampler(full_counts, burn_in_iterations=5)
+
+	def run(self, args):
+		self.train(args)
 
 if __name__ == "__main__":
 	problem = SynonymLearner()

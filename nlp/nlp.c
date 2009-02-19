@@ -1,5 +1,9 @@
 #include "Python.h"
+
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
+
 #include "sloppy-math.h"
 
 #define NLP_MODULE
@@ -569,6 +573,27 @@ cnter_freeze(cnterobject *dd)
 
 PyDoc_STRVAR(cnter_freeze_doc, "D.freeze() -> computes some static statistics, sets D.frozen to True");
 
+static PyObject *
+cnter_sample(cnterobject *dd)
+{
+  double point = ((double)rand() / (((double)RAND_MAX) + 1));
+  double running = 0.0;
+  Py_ssize_t i = 0;
+  PyObject *key, *value;
+
+  while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
+	running += PyFloat_AsDouble(value);
+	if (running >= point) {
+	  Py_INCREF(key);
+	  return key;
+	}
+  }
+
+  Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(cnter_sample_doc, "D.sample() -> Randomly samples from the counter, assumes (for now) that it's a 0-1 distribution");
+
 static PyMethodDef cnter_methods[] = {
 	{"__missing__", (PyCFunction)cnter_missing, METH_O,
 	 cnter_missing_doc},
@@ -591,6 +616,7 @@ static PyMethodDef cnter_methods[] = {
 	{"max", (PyCFunction)cnter_max, METH_NOARGS, cnter_max_doc},
 	{"inner_product", (PyCFunction)cnter_inner_product, METH_O, cnter_inner_product_doc},
 	{"freeze", (PyCFunction)cnter_freeze, METH_NOARGS, cnter_freeze_doc},
+	{"sample", (PyCFunction)cnter_sample, METH_NOARGS, cnter_sample_doc},
 	{NULL}
 };
 
@@ -930,6 +956,8 @@ initnlp(void)
 	NlpCounter_API[6] = (void *)NlpCounter_GetDefault;
 
 	c_api_object = PyCObject_FromVoidPtr((void *)NlpCounter_API, NULL);
+
+	srandomdev();
 
 	if (c_api_object != NULL)
 	  PyModule_AddObject(m, "_C_API", c_api_object);
