@@ -6,3 +6,5 @@ nlp/cymaxent.c
 *.so
 *.o
 *.pickle
+ltxpng
+.DS_Store
