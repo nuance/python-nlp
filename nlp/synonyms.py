@@ -47,7 +47,10 @@ class SynonymLearner(object):
 		print full_counts
 
 		# and hand over work to the sampler
-		sampler = CRPGibbsSampler(full_counts, burn_in_iterations=5)
+		print len(full_counts)
+		sampler = CRPGibbsSampler(full_counts, burn_in_iterations=100)
+		print len(full_counts)
+		print sampler._datum_to_cluster
 
 	def run(self, args):
 		self.train(args)
