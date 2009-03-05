@@ -385,8 +385,11 @@ FN_NAME(PyObject *dd, PyObject *other)\
   Py_ssize_t i;\
   PyObject *key, *value;\
 \
-  if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))\
+  if ((PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other)) && NlpCounter_Check(dd)) \
 		return FN_NAME ## _scalar((cnterobject*)dd, other);\
+\
+  if ((PyInt_Check(dd) || PyFloat_Check(dd) || PyLong_Check(dd)) && NlpCounter_Check(other)) \
+		return FN_NAME ## _scalar((cnterobject*)other, dd);\
 \
   if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
     PyErr_SetString(PyExc_ValueError, "Counter " #OP " requires two counters or a counter and a scalar");\
@@ -492,8 +495,11 @@ FN_NAME(PyObject *dd, PyObject *other)\
 	Py_ssize_t i;\
 	PyObject *key, *value;\
 \
-	if (PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other))\
+	if ((PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other)) && NlpCounter_Check(dd)) \
 	  return FN_NAME ## _scalar((cnterobject*)dd, other);\
+\
+	if ((PyInt_Check(dd) || PyFloat_Check(dd) || PyLong_Check(dd)) && NlpCounter_Check(other)) \
+	  return FN_NAME ## _scalar((cnterobject*)other, dd);\
 \
 	if (!NlpCounter_Check(dd) || !NlpCounter_Check(other)) {\
 	  PyErr_SetString(PyExc_ValueError, "Counter in-place " #OP " requires two counters or a counter and a scalar"); \
