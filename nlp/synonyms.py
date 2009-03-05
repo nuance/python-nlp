@@ -44,11 +44,9 @@ class SynonymLearner(object):
 		full_counts += pre_counts
 		full_counts += post_counts
 
-		print full_counts
-
 		# and hand over work to the sampler
 		print len(full_counts)
-		sampler = CRPGibbsSampler(full_counts, burn_in_iterations=100)
+		sampler = CRPGibbsSampler(full_counts, burn_in_iterations=20)
 		print len(full_counts)
 		print sampler._datum_to_cluster
 
