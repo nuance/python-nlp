@@ -106,20 +106,28 @@ class CRPGibbsSampler(object):
 		# model)
 
 		# FIXME: This should really be cached for the last invocation
-		score = 0.0
+		score = Counter(default=0.0)
 		for cluster in self._cluster_to_datum:
 			# Evaluate the likelihood of each individual cluster
 			cluster_size = len(self._cluster_to_datum[cluster])
 			if not cluster_size: continue
-			cluster_mean = sum(self._cluster_to_datum[cluster]) / cluster_size
+			# The mean of the data points belonging to this cluster
+			cluster_datum_mean = sum(self._cluster_to_datum[cluster]) / cluster_size
+			# The MLE of the mean of the cluster given the data points and the prior
+			cluster_mle_mean = cluster_datum_mean
 
-			likelihood = 0.0
-			for point in self._cluster_to_datum[cluster]:
-				 likelihood += sum(((point - cluster_mean) * (point - cluster_mean)).itervalues())
-			likelihood *= -self._cluster_tau / 2
+			likelihood = cluster_mle_mean * cluster_mle_mean
+			likelihood *= (cluster_size * self._cluster_tau + self._mh_tau) ** 2
 			score += likelihood
 
-		return score
+			likelihood = cluster_size * self._cluster_tau * cluster_datum_mean
+			likelihood += self._mh_tau * self._mh_mean
+			likelihood *= 2 * cluster_mle_mean
+			score += likelihood
+
+		# for the gaussian the dimensions are independent so we should
+		# just be able to combine them directly
+		return sum(score.itervalues())
 
 	def plot(self, iteration):
 		r = robjects.r
