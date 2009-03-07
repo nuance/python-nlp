@@ -91,9 +91,11 @@ cnter_reduce(cnterobject *dd)
 	   signature is compatible; the first argument must be the
 	   optional default_factory, defaulting to None.
 	*/
-	PyObject *items, *args, *result;
+	PyObject *items, *args, *result, *default_value;
 
-	args = PyTuple_Pack(1, PyFloat_FromDouble(dd->default_value));
+	default_value = PyFloat_FromDouble(dd->default_value);
+	args = PyTuple_Pack(1, default_value);
+	Py_DECREF(default_value);
 
 	if (args == NULL)
 	  return NULL;
@@ -217,6 +219,31 @@ cnter_log(cnterobject *dd)
 }
 
 PyDoc_STRVAR(cnter_log_doc, "D.log() -> in place logs the counts in D and the default value, returns None");
+
+static PyObject *
+cnter_exp(cnterobject *dd)
+{
+	Py_ssize_t i;
+	PyObject *key, *value;
+
+	i = 0;
+	while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {
+	  int ok;
+
+	  PyObject *newValue = PyFloat_FromDouble(sloppy_exp(PyFloat_AsDouble(value)));
+	  ok = PyDict_SetItem((PyObject*)dd, key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) return NULL;
+	}
+	
+	dd->default_value = sloppy_exp(dd->default_value);
+	
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+PyDoc_STRVAR(cnter_exp_doc, "D.exp() -> in place exps the counts in D and the default value, returns None");
 
 static PyObject *
 cnter_total_count(cnterobject *dd)
@@ -595,7 +622,8 @@ cnter_sample(cnterobject *dd)
 	}
   }
 
-  Py_RETURN_NONE;
+  PyErr_SetString(PyExc_ValueError, "sampling didn't find a point!");
+  return NULL;
 }
 
 PyDoc_STRVAR(cnter_sample_doc, "D.sample() -> Randomly samples from the counter, assumes (for now) that it's a 0-1 distribution");
@@ -613,8 +641,8 @@ static PyMethodDef cnter_methods[] = {
 	 cnter_normalize_doc},
 	{"log_normalize", (PyCFunction)cnter_log_normalize, METH_NOARGS,
 	 cnter_log_normalize_doc},
-	{"log", (PyCFunction)cnter_log, METH_NOARGS,
-	 cnter_log_doc},
+	{"log", (PyCFunction)cnter_log, METH_NOARGS, cnter_log_doc},
+	{"exp", (PyCFunction)cnter_exp, METH_NOARGS, cnter_exp_doc},
 	{"total_count", (PyCFunction)cnter_total_count, METH_NOARGS,
 	 cnter_total_count_doc},
 	{"arg_max", (PyCFunction)cnter_arg_max, METH_NOARGS,
