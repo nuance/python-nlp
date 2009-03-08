@@ -2,7 +2,7 @@ import unittest
 from math import log
 
 from naivebayes import NaiveBayesClassifier
-from nlp import counter
+from counter import Counter
 
 class NaiveBayesClassifierTest(unittest.TestCase):
 	def test_single_training_data(self):
@@ -34,7 +34,7 @@ class NaiveBayesClassifierTest(unittest.TestCase):
 		self.failUnlessEqual(len(distribution), 2)
 		self.failUnless('A' in distribution)
 
-		correct_distribution = counter()
+		correct_distribution = Counter()
 		correct_distribution['A'] = (2.0 / 3.0)**3
 		correct_distribution['B'] = (1.0 / 3.0)**3
 		correct_distribution.normalize()

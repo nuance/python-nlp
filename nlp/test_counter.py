@@ -247,5 +247,31 @@ class CounterTester(unittest.TestCase):
 		bar += foo
 		self.failUnless(foo2 == foo)
 
+	def test_only_numbers(self):
+		foo = Counter()
+		def setFooDict():
+			foo['a'] = dict()
+		def setFooList():
+			foo['a'] = list()
+		def setFooChar():
+			foo['a'] = 'a'
+		self.failUnlessRaises(ValueError, setFooDict)
+		self.failUnlessRaises(ValueError, setFooList)
+		self.failUnlessRaises(ValueError, setFooChar)
+
+		self.failUnless(foo == Counter())
+
+	def test_sum(self):
+		foo = Counter()
+		bar = Counter()
+
+		foo['x'] = 1.0
+		foo['y'] = 1.0
+		bar['z'] = 1.0
+		bar['x'] = 1.0
+
+		self.assertEqual(foo + bar, Counter({'x': 2.0, 'y': 1.0, 'z': 1.0}))
+		self.assertEqual(sum((foo + bar).itervalues()), 4.0)
+
 if __name__ == "__main__":
 	unittest.main()

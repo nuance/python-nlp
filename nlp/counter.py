@@ -1,7 +1,8 @@
 from collections import defaultdict
 from math import log, exp
+import random
 
-__use_c_counter__ = True
+__use_c_counter__ = False
 
 if __use_c_counter__:
 	from nlp import counter as Counter
@@ -16,11 +17,10 @@ else:
 
 			return self[key]
 
-		def __init__(self):
-			super(Counter, self).__init__()
-
-		def __init__(self, *args):
-			if len(args) == 1 and isinstance(args[0], (int, long, float)):
+		def __init__(self, *args, **kwargs):
+			if 'default' in kwargs:
+				self.default = kwargs['default']
+			elif len(args) == 1 and isinstance(args[0], (int, long, float)):
 				self.default = args[0]
 				args = []
 			super(Counter, self).__init__(*args)
@@ -43,9 +43,10 @@ else:
 			sum = self.total_count()
 
 			if sum == 0.0:
-				uniform = 1 / len(self.iteritems())
-				for key in self.iteritems():
+				uniform = 1 / len(self)
+				for key in self.iterkeys():
 					self[key] = uniform
+				return
 
 			for (key, value) in self.iteritems():
 				self[key] /= sum
@@ -60,6 +61,18 @@ else:
 			for key in self.iterkeys():
 				self[key] = log(self[key])
 
+		def exp(self):
+			for key in self.iterkeys():
+				self[key] = exp(self[key])
+
+		def sample(self):
+			total = self.total_count()
+			point = random.random() * total
+
+			for k, v in self.iteritems():
+				point -= v
+				if point < 0: return k
+
 		def inner_product(self, other):
 			keys = set(self.iterkeys())
 			keys.update(other.iterkeys())
@@ -67,6 +80,9 @@ else:
 			return sum((self.d_get(key) * other.d_get(key)) for key in keys)
 
 		def d_get(self, key):
+			"""Returns the same thing as self[key], but doesn't add
+			a new key if key is not in self4
+			"""
 			return self.get(key, self.default)
 
 		def __str__(self):
@@ -102,6 +118,47 @@ else:
 
 			return lval
 
+		def __idiv__(self, other):
+			if isinstance(other, (int, long, float)):
+				for key in self.keys():
+					self[key] /= other
+				return self
+
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
+
+			for key in keys:
+				self[key] /= other.d_get(key)
+
+			if other.default:
+				self.default /= other.default
+
+			return self
+
+		@classmethod
+		def div(cls, a, b):
+			if not (isinstance(a, cls) or isinstance(b, cls)):
+				raise ValueError("div requires one or two counters and one or zero floats")
+			if isinstance(a, (int, long, float)):
+				return Counter((key, value / a) for (key, value) in b.iteritems())
+			if isinstance(b, (int, long, float)):
+				return Counter((key, value / b) for (key, value) in a.iteritems())
+
+			keys = set(a.iterkeys())
+			keys.update(b.iterkeys())
+
+			lval = Counter((key, a.d_get(key) / b.d_get(key)) for key in keys)
+			if b.default:
+				lval.default = a.default / b.default
+			else:
+				lval.default = a.default
+
+			return lval
+
+		# mul => element-wise multiplication
+		def __div__(self, other):
+			return Counter.div(self, other)
+
 		def __iadd__(self, other):
 			if isinstance(other, (int, long, float)):
 				for key in self.keys():
@@ -121,6 +178,7 @@ else:
 		def __add__(self, other):
 			if isinstance(other, (int, long, float)):
 				return Counter((key, value + other) for (key, value) in self.iteritems())
+			print other
 
 			new = Counter()
 
@@ -133,6 +191,9 @@ else:
 			new.default = self.default + other.default
 
 			return new
+
+		def __repr__(self):
+			return "Counter(%s, default=%f)" % (super(Counter, self).__repr__(), self.default)
 
 		def __isub__(self, other):
 			if isinstance(other, (int, long, float)):
@@ -161,6 +222,11 @@ else:
 			new.default = self.default - other.default
 
 			return new
+
+		def __setitem__(self, key, value):
+			if not isinstance(value, (int, long, float)):
+				raise ValueError("Counters can only hold numeric types")
+			return super(Counter, self).__setitem__(key, value)
 
 
 if __name__ == "__main__":
