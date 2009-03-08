@@ -1,8 +1,9 @@
 from collections import defaultdict
 from math import log, exp
 import random
+import os
 
-__use_c_counter__ = True
+__use_c_counter__ = (os.environ.get("COUNTER", '').lower() != 'py')
 
 if __use_c_counter__:
 	from nlp import counter as Counter
