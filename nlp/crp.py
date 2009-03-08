@@ -1,11 +1,12 @@
-from collections import defaultdict
 import datetime
 import itertools
+from math import exp, log, sqrt
 
 import rpy2.robjects as robjects
 
-from countermap import CounterMap
 from counter import Counter
+
+import sys
 
 class CRPGibbsSampler(object):
 	def __init__(self, data, gibbs_iterations=1, cluster_precision=0.25, mh_mean=Counter(default=1.0), mh_precision=1.0):
@@ -32,36 +33,87 @@ class CRPGibbsSampler(object):
 
 		# These will be learned during sampling
 		self._datum_to_cluster = dict()
-		self._cluster_to_datum = defaultdict(list)
-		self._cluster_counts = CounterMap(default=float("-inf"))
+		self._cluster_to_datum = dict()
 
 		self._iteration_likelihoods = []
 		self._cluster_count = []
 
 	def _sample_datum(self, datum):
-		probs = Counter()
+		likelihoods = Counter()
+		priors = Counter()
+		posteriors = Counter()
+		sizes = Counter()
 
-		for cluster in self._cluster_to_datum:
-			cluster_size = len(self._cluster_to_datum[cluster])
-			cluster_mean = sum(self._cluster_to_datum[cluster], Counter()) / cluster_size
+		print "start: %s" % repr(self._cluster_to_datum.items())
+		for c_idx, cluster in self._cluster_to_datum.iteritems():
+			if not cluster:
+				continue
+			sizes[c_idx] = len(cluster)
+			cluster_mean = sum(cluster, Counter()) / float(sizes[c_idx])
+
 			mean = self._mh_mean * self._mh_tau
 			mean += cluster_mean * self._cluster_tau
-			mean /= (self._mh_tau + cluster_size * self._cluster_tau)
-			precision = self._mh_tau + cluster_size * self._cluster_tau
+			mean /= (self._mh_tau + sizes[c_idx] * self._cluster_tau)
+			precision = self._mh_tau + sizes[c_idx] * self._cluster_tau
 
 			diff = datum - mean
 			point_score = diff * diff
-			point_score *= 0.5 * precision
-			probs[cluster] = point_score.total_count()
+			point_score *= precision * -0.5
+			posteriors[c_idx] = point_score.total_count()
 
-		probs[len(self._cluster_to_datum)] = self._concentration
+			# prior is keyed on the (potentially) updated params
+			prior = self._mh_tau * -0.5
+			prior_cluster_mean = cluster_mean + (datum / sizes[c_idx])
+			prior *= (prior_cluster_mean - self._mh_mean)
+			prior *= (prior_cluster_mean - self._mh_mean)
+			priors[c_idx] = sum(prior.itervalues())
+
+			likelihoods[c_idx] = -0.5 * self._cluster_tau
+			likelihoods[c_idx] *= sum(((datum - cluster_mean) * (datum - cluster_mean)).itervalues())
+
+			sizes[c_idx] = log(sizes[c_idx])
+
+		# Now generate probs for the new cluster
+		# prefer to reuse an old cluster # if possible
+		new_cluster = min([c for c, d in self._cluster_to_datum.iteritems() if not d], len(self._cluster_to_datum))
+
+		mean = self._mh_mean * self._mh_tau
+		mean += datum * self._cluster_tau
+		mean /= self._mh_tau
+		precision = self._mh_tau
+		diff = datum - mean
+		point_score = diff * diff
+		point_score *= precision * -0.5
+		posteriors[new_cluster] = point_score.total_count()
+
+		priors[new_cluster] = sum((self._mh_tau * (datum - self._mh_mean) * (datum - self._mh_mean) * -0.5).itervalues())
+		likelihoods[new_cluster] = 0.0
+		sizes[new_cluster] = log(self._concentration)
+
+		print "Sizes", sizes
+		sizes.log_normalize()
+		sizes.exp()
+		print "Likelihoods", likelihoods
+		likelihoods.log_normalize()
+		likelihoods.exp()
+		print "Priors", priors
+		priors.log_normalize()
+		priors.exp()
+		print "Posteriors:", posteriors
+		posteriors.log_normalize()
+		print "Posteriors:", posteriors
+		probs = sizes * likelihoods * priors / posteriors
+
+		print "Log score: %s" % probs
+		probs.exp()
 		probs.normalize()
+		print "Probs: %s" % probs
 
 		return probs.sample()
 
 	def _add_datum(self, name, datum, cluster):
 		self._datum_to_cluster[name] = cluster
-		self._cluster_to_datum[cluster].append(datum)
+		self._cluster_to_datum.setdefault(cluster, []).append(datum)
 
 	def _remove_datum(self, name, datum):
 		cluster = self._datum_to_cluster.get(name)
@@ -94,6 +146,7 @@ class CRPGibbsSampler(object):
 				# first, remove this point from it's current cluster
 				self._remove_datum(name, datum)
 				# then find a new cluster for it to live in
+				cluster = 0
 				cluster = self._sample_datum(datum)
 				# and, finally, add it back in
 				self._add_datum(name, datum, cluster)
@@ -107,23 +160,24 @@ class CRPGibbsSampler(object):
 
 		# FIXME: This should really be cached for the last invocation
 		score = Counter(default=0.0)
-		for cluster in self._cluster_to_datum:
+		for c_idx, cluster in self._cluster_to_datum.iteritems():
+			if not cluster: continue
 			# Evaluate the likelihood of each individual cluster
-			cluster_size = len(self._cluster_to_datum[cluster])
-			if not cluster_size: continue
+			cluster_size = len(cluster)
 			# The mean of the data points belonging to this cluster
-			cluster_datum_mean = sum(self._cluster_to_datum[cluster]) / cluster_size
+			cluster_datum_mean = sum(cluster) / cluster_size
 			# The MLE of the mean of the cluster given the data points and the prior
 			cluster_mle_mean = cluster_datum_mean
 
 			likelihood = cluster_mle_mean * cluster_mle_mean
-			likelihood *= (cluster_size * self._cluster_tau + self._mh_tau) ** 2
-			score += likelihood
+			x = (cluster_size * self._cluster_tau + self._mh_tau)
+			likelihood *= x * x
+			score -= likelihood
 
 			likelihood = cluster_size * self._cluster_tau * cluster_datum_mean
 			likelihood += self._mh_tau * self._mh_mean
 			likelihood *= 2 * cluster_mle_mean
-			score += likelihood
+			score -= likelihood
 
 		# for the gaussian the dimensions are independent so we should
 		# just be able to combine them directly

@@ -25,7 +25,7 @@ class CRPGibbsSamplerTest(unittest.TestCase):
 		self.sampler._add_datum(1, self.points[1], 1)
 		self.sampler._add_datum(2, self.points[2], 2)
 		
-		self.assertEqual(self.sampler.log_likelihood(), 12.0625 * 2 + 306.25 * 2)
+		self.assertEqual(self.sampler.log_likelihood(), -(12.0625 * 2 + 306.25 * 2))
 		self.assertEqual(len(self.sampler._cluster_to_datum), 2)
 		self.assertEqual(self.sampler._cluster_to_datum[1], [self.points[1]])
 		self.assertEqual(self.sampler._cluster_to_datum[2], [self.points[2]])
@@ -33,7 +33,7 @@ class CRPGibbsSamplerTest(unittest.TestCase):
 		self.sampler._remove_datum(1, self.points[1])
 		self.sampler._add_datum(1, self.points[1], 2)
 
-		self.assertEqual(self.sampler.log_likelihood(), 306.625)
+		self.assertEqual(self.sampler.log_likelihood(), -306.625)
 		self.assertEqual(len([c for c, v in self.sampler._cluster_to_datum.iteritems() if v]), 1)
 		self.assertEqual(sorted(self.sampler._cluster_to_datum[2]), sorted(self.points.itervalues()))
 

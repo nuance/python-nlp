@@ -9,17 +9,20 @@ class GaussianClusterer(object):
 	def train(self):
 		rand = Random()
 		rand.seed()
-		clusters = 5
+		clusters = 2
 		dims = 2
 		points = 100
 		data = []
 		data_to_cluster = dict()
 
-		means = [tuple(rand.uniform(0, 100) for _ in xrange(dims)) for _ in xrange(clusters)]
-		mean_counters = [Counter((('x', m[0]), ('y', m[1]))) for m in means]
+#		means = [tuple(rand.uniform(0, 100) for _ in xrange(dims)) for
+#		_ in xrange(clusters)]
+		means = [(10.0, 10.0), (90.0, 90.0)]
+		mean_counters = [Counter((('x', x), ('y', y))) for (x, y) in means]
 
-		cluster_mean = sum(mean_counters) / len(means)
-		cluster_precision = (len(means) - 1) / sum((m - cluster_mean) * (m - cluster_mean) for m in mean_counters)
+		cluster_mean = sum(mean_counters, Counter()) / len(means)
+		lm = len(means) - 1
+		cluster_precision = Counter((k, lm / v) for k,v in sum(((m - cluster_mean) * (m - cluster_mean) for m in mean_counters), Counter()).iteritems())
 
 		cluster_to_data = defaultdict(list)
 		for _ in xrange(points):
@@ -32,12 +35,12 @@ class GaussianClusterer(object):
 			cluster_to_data[cluster].append(point)
 
 		for cluster, cdata in cluster_to_data.iteritems():
-			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
+			print "Cluster (size %d): %s" % (len(cdata), sum(cdata, Counter()) / len(cdata))
 		data = dict(enumerate(data))
 		# and hand over work to the sampler
-		sampler = CRPGibbsSampler(data, burn_in_iterations=int(sys.argv[1]), mh_mean=cluster_mean, mh_precision=cluster_precision)
+		sampler = CRPGibbsSampler(data, mh_mean=cluster_mean, mh_precision=cluster_precision)
 
-
+		sampler.gibbs(int(sys.argv[1]))
 
 	def run(self):
 		# generate random means and sample points from them

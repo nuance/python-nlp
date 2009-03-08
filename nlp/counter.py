@@ -2,13 +2,18 @@ from collections import defaultdict
 from math import log, exp
 import random
 
-__use_c_counter__ = False
+__use_c_counter__ = True
 
 if __use_c_counter__:
 	from nlp import counter as Counter
 	print "Using C counter"
 else:
 	print "Using python counter"
+
+	def _log(x):
+		if x == 0.0: return float("-inf")
+		else: return log(x)
+
 	class Counter(dict):
 		default = 0.0
 
@@ -52,14 +57,15 @@ else:
 				self[key] /= sum
 
 		def log_normalize(self):
-			log_sum = log(sum(exp(val) for val in self.itervalues()))
+			vsum = sum(exp(v) for v in self.itervalues())
+			log_sum = _log(vsum)
 
 			for key in self.iterkeys():
 				self[key] -= log_sum
 
 		def log(self):
 			for key in self.iterkeys():
-				self[key] = log(self[key])
+				self[key] = _log(self[key])
 
 		def exp(self):
 			for key in self.iterkeys():
@@ -178,7 +184,6 @@ else:
 		def __add__(self, other):
 			if isinstance(other, (int, long, float)):
 				return Counter((key, value + other) for (key, value) in self.iteritems())
-			print other
 
 			new = Counter()
 
