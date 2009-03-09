@@ -1,5 +1,5 @@
 from collections import defaultdict
-from math import log, exp
+from math import exp
 from random import Random
 import sys
 
@@ -8,12 +8,12 @@ from crp import CRPGibbsSampler
 
 class GaussianClusterer(CRPGibbsSampler):
 	def _sample_datum(self, datum):
-		likelihoods = Counter()
-		priors = Counter()
-		posteriors = Counter()
+		likelihoods = Counter(float("-inf"))
+		priors = Counter(float("-inf"))
+		posteriors = Counter(float("-inf"))
 		sizes = Counter()
 
-		print "start: %s" % repr(self._cluster_to_datum.items())
+		print "*** start: %s ***" % repr(self._cluster_to_datum.items())
 		for c_idx, cluster in self._cluster_to_datum.iteritems():
 			if not cluster:
 				continue
@@ -40,7 +40,7 @@ class GaussianClusterer(CRPGibbsSampler):
 			likelihoods[c_idx] = -0.5 * self._cluster_tau
 			likelihoods[c_idx] *= sum(((datum - cluster_mean) * (datum - cluster_mean)).itervalues())
 
-			sizes[c_idx] = log(sizes[c_idx])
+			sizes[c_idx] = sizes[c_idx]
 
 		# Now generate probs for the new cluster
 		# prefer to reuse an old cluster # if possible
@@ -48,35 +48,31 @@ class GaussianClusterer(CRPGibbsSampler):
 
 		mean = self._mh_mean * self._mh_tau
 		mean += datum * self._cluster_tau
-		mean /= self._mh_tau
-		precision = self._mh_tau
+		mean /= (self._mh_tau + self._cluster_tau)
+		precision = self._cluster_tau
 		diff = datum - mean
 		point_score = diff * diff
 		point_score *= precision * -0.5
 		posteriors[new_cluster] = point_score.total_count()
+		print " New cluster (%d) posterior: %s" % (new_cluster, posteriors[new_cluster])
 
 		priors[new_cluster] = sum((self._mh_tau * (datum - self._mh_mean) * (datum - self._mh_mean) * -0.5).itervalues())
 		likelihoods[new_cluster] = 0.0
-		sizes[new_cluster] = log(self._concentration)
+		sizes[new_cluster] = self._concentration
 
-		print "Sizes", sizes
-		sizes.log_normalize()
-		sizes.exp()
-		print "Likelihoods", likelihoods
 		likelihoods.log_normalize()
-		likelihoods.exp()
-		print "Priors", priors
+		print "  Likelihoods", likelihoods
 		priors.log_normalize()
-		priors.exp()
-		print "Posteriors:", posteriors
+		print "  Priors", priors
 		posteriors.log_normalize()
-		print "Posteriors:", posteriors
-		probs = sizes * likelihoods * priors / posteriors
-
-		print "Log score: %s" % probs
+		print "  Posteriors:", posteriors
+		probs = likelihoods + priors - posteriors
+		print " Total probs: %s" % probs
 		probs.exp()
 		probs.normalize()
-		print "Probs: %s" % probs
+
+		probs *= sizes
+		print " Total probs: %s" % probs
 
 		return probs.sample()
 
@@ -126,7 +122,7 @@ class GaussianClusterer(CRPGibbsSampler):
 
 		cluster_mean = sum(mean_counters, Counter()) / len(means)
 		lm = len(means) - 1
-		cluster_precision = Counter((k, lm / v) for k,v in sum(((m - cluster_mean) * (m - cluster_mean) for m in mean_counters), Counter()).iteritems())
+		cluster_precision = Counter((k, lm / v) for k, v in sum(((m - cluster_mean) * (m - cluster_mean) for m in mean_counters), Counter()).iteritems())
 
 		cluster_to_data = defaultdict(list)
 		for _ in xrange(points):
