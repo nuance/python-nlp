@@ -5,6 +5,7 @@ import os
 
 __use_c_counter__ = (os.environ.get("COUNTER", '').lower() != 'py')
 
+
 if __use_c_counter__:
 	from nlp import counter as Counter
 	print "Using C counter"
@@ -125,6 +126,9 @@ else:
 
 			return lval
 
+		def __rmul__(self, other):
+			return self.__mul__(other)
+
 		def __idiv__(self, other):
 			if isinstance(other, (int, long, float)):
 				for key in self.keys():
@@ -142,29 +146,27 @@ else:
 
 			return self
 
-		@classmethod
-		def div(cls, a, b):
-			if not (isinstance(a, cls) or isinstance(b, cls)):
-				raise ValueError("div requires one or two counters and one or zero floats")
-			if isinstance(a, (int, long, float)):
-				return Counter((key, value / a) for (key, value) in b.iteritems())
-			if isinstance(b, (int, long, float)):
-				return Counter((key, value / b) for (key, value) in a.iteritems())
+		# mul => element-wise multiplication
+		def __div__(self, other):
+			if isinstance(other, (int, long, float)):
+				return Counter((key, value / other) for (key, value) in self.iteritems())
 
-			keys = set(a.iterkeys())
-			keys.update(b.iterkeys())
+			keys = set(self.iterkeys())
+			keys.update(other.iterkeys())
 
-			lval = Counter((key, a.d_get(key) / b.d_get(key)) for key in keys)
-			if b.default:
-				lval.default = a.default / b.default
+			lval = Counter((key, self.d_get(key) / other.d_get(key)) for key in keys)
+			if other.default:
+				lval.default = self.default / other.default
 			else:
-				lval.default = a.default
+				lval.default = self.default
 
 			return lval
 
-		# mul => element-wise multiplication
-		def __div__(self, other):
-			return Counter.div(self, other)
+		def __rdiv__(self, other):
+			return self.__div__(other)
+
+		def __pow__(self, power, modulo=None):
+			return Counter((k, v ** power) for k, v in self.iteritems())
 
 		def __iadd__(self, other):
 			if isinstance(other, (int, long, float)):
@@ -198,6 +200,9 @@ else:
 
 			return new
 
+		def __radd__(self, other):
+			return self.__add__(other)
+
 		def __repr__(self):
 			return "Counter(%s, default=%f)" % (super(Counter, self).__repr__(), self.default)
 
@@ -229,6 +234,9 @@ else:
 
 			return new
 
+		def __rsub__(self, other):
+			return self.__sub__(other)
+
 		def __setitem__(self, key, value):
 			if not isinstance(value, (int, long, float)):
 				raise ValueError("Counters can only hold numeric types")
@@ -237,3 +245,11 @@ else:
 
 if __name__ == "__main__":
 	test()
+
+def counter_map(cnter, func):
+	ret = Counter(func(cnter.default))
+
+	for k, v in cnter.iteritems():
+		ret[k] = func(v)
+
+	return ret
