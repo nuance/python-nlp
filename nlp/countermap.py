@@ -1,7 +1,6 @@
-from collections import defaultdict
 from copy import copy
 from itertools import chain, izip, repeat
-from math import log
+from math import exp, log
 
 from counter import Counter
 
@@ -33,6 +32,11 @@ class CounterMap(dict):
 			self.default = log(self.default)
 		except (OverflowError, ValueError):
 			self.default = float("-inf")
+
+	def exp(self):
+		for cnter in self.itervalues():
+			cnter.exp()
+		self.default = exp(self.default)
 
 	def linearize(self):
 		"""Return an iterator over (key, subkey) pairs (so we can view a countermap as a vector)
