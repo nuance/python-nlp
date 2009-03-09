@@ -221,6 +221,47 @@ cnter_log(cnterobject *dd)
 PyDoc_STRVAR(cnter_log_doc, "D.log() -> in place logs the counts in D and the default value, returns None");
 
 static PyObject *
+cnter_pow(PyObject *dd, PyObject *other, PyObject *modulo)
+{
+	Py_ssize_t i;
+	PyObject *key, *value;
+
+	if ((PyInt_Check(dd) || PyFloat_Check(dd) || PyLong_Check(dd)) && NlpCounter_Check(other))
+	  return cnter_pow(other, dd, modulo);
+	
+	if (!(PyInt_Check(other) || PyFloat_Check(other) || PyLong_Check(other)) && NlpCounter_Check(dd)) {
+	  PyErr_SetString(PyExc_ValueError, "Counter __pow__ requires a counter and a number"); 
+	  return NULL;
+	}
+
+	double scalar;
+
+	if (PyInt_Check(other)) scalar = (double)PyInt_AsLong(other);
+	else if (PyLong_Check(other)) scalar = (double)PyLong_AsLong(other);
+	else scalar = PyFloat_AsDouble(other);
+
+	PyObject *ret_cnter = NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);
+
+	/* Set the default value*/
+	((cnterobject *)ret_cnter)->default_value = pow(((cnterobject *)dd)->default_value, scalar);
+
+	i = 0;
+	while (PyDict_Next(dd, &i, &key, &value)) {
+	  int ok;
+
+	  PyObject *newValue = PyFloat_FromDouble(pow(PyFloat_AsDouble(value), scalar));
+	  ok = PyDict_SetItem(ret_cnter, key, newValue);
+	  Py_DECREF(newValue);
+
+	  if (ok < 0) return NULL;
+	}
+	
+	return (PyObject*) ret_cnter;
+}
+
+PyDoc_STRVAR(cnter_pow_doc, "D ** i -> raises the counts in D and the default value to the power i and returns the results. NOTE: this ignore the optional modulo argument");
+
+static PyObject *
 cnter_exp(cnterobject *dd)
 {
 	Py_ssize_t i;
@@ -382,8 +423,10 @@ fn_name(cnterobject *cnter, PyObject *other)\
 \
   ret_cnter = (cnterobject *)NlpCounter_Type.tp_new(&NlpCounter_Type, NULL, NULL);\
 \
+  ret_cnter->default_value = cnter->default_value OP scalar;\
+\
   /* Copy cnter into ret_cnter */ \
-  if (PyDict_Update((PyObject*)&(ret_cnter->dict), (PyObject*)cnter) < 0)\
+  if (PyDict_Update((PyObject*)ret_cnter, (PyObject*)cnter) < 0)\
    	return NULL;\
 \
   i = 0;\
@@ -882,7 +925,7 @@ static PyNumberMethods cnter_as_number = {
 	(binaryfunc) cnter_div,				/*nb_divide*/
 	0,				/*nb_remainder*/
 	0,				/*nb_divmod*/
-	0,				/*nb_power*/
+	(ternaryfunc) cnter_pow,				/*nb_power*/
 	0,				/*nb_negative*/
 	0,				/*nb_positive*/
 	0,				/*nb_absolute*/
