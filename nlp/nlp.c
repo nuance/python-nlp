@@ -539,6 +539,8 @@ FN_NAME(cnterobject *dd, PyObject *other)\
   else if (PyLong_Check(other)) scale = (double)PyLong_AsLong(other);\
   else scale = PyFloat_AsDouble(other);\
 \
+  dd->default_value = dd->default_value OP scale; \
+\
   i = 0;\
   while (PyDict_Next((PyObject*)dd, &i, &key, &value)) {\
 	int ok;\
