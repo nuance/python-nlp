@@ -6,26 +6,7 @@ import sys
 from counter import Counter, counter_map
 from countermap import CounterMap
 from crp import CRPGibbsSampler
-
-class GaussianDistribution(object):
-	@classmethod
-	def log_prob(cls, point, mean, precision, debug=False):
-		result = -0.5 * precision * (point - mean) ** 2# + 0.5 * counter_map(precision, lambda pr: log(pr) if pr else float("-inf")) - 0.5 * log(2 * pi)
-		if debug or any(v > 0.0 for v in result.itervalues()):
-			print "GaussianDistribution.log_prob"
-			print " - mean:      ", mean
-			print " - precision: ", precision
-			print " - point:     ", point
-			print "  [1]  -0.5 * precision =", -0.5 * precision
-			print "  [2]  (point - mean) ** 2 =", (point - mean) ** 2
-			print "  [1] * [2] =", (-0.5 * precision * (point - mean) ** 2)
-			print "  [3]  0.5 * log(tau) =", 0.5 * counter_map(precision, lambda pr: log(pr) if pr else float("-inf"))
-			print "  [4]  -0.5 * log(2*pi) =", - 0.5 * log(2 * pi)
-
-			print "= %s" % result
-			raise Exception()
-
-		return result
+from distributions import Gaussian
 
 class GaussianClusterer(CRPGibbsSampler):
 	def _sample_datum(self, datum):
