@@ -1,79 +1,100 @@
 from collections import defaultdict
-from math import exp
+from math import log, pi, sqrt
 from random import Random
 import sys
 
-from counter import Counter
+from counter import Counter, counter_map
+from countermap import CounterMap
 from crp import CRPGibbsSampler
+
+class GaussianDistribution(object):
+	@classmethod
+	def log_prob(cls, point, mean, precision, debug=False):
+		result = -0.5 * precision * (point - mean) ** 2# + 0.5 * counter_map(precision, lambda pr: log(pr) if pr else float("-inf")) - 0.5 * log(2 * pi)
+		if debug or any(v > 0.0 for v in result.itervalues()):
+			print "GaussianDistribution.log_prob"
+			print " - mean:      ", mean
+			print " - precision: ", precision
+			print " - point:     ", point
+			print "  [1]  -0.5 * precision =", -0.5 * precision
+			print "  [2]  (point - mean) ** 2 =", (point - mean) ** 2
+			print "  [1] * [2] =", (-0.5 * precision * (point - mean) ** 2)
+			print "  [3]  0.5 * log(tau) =", 0.5 * counter_map(precision, lambda pr: log(pr) if pr else float("-inf"))
+			print "  [4]  -0.5 * log(2*pi) =", - 0.5 * log(2 * pi)
+
+			print "= %s" % result
+			raise Exception()
+
+		return result
 
 class GaussianClusterer(CRPGibbsSampler):
 	def _sample_datum(self, datum):
-		likelihoods = Counter(float("-inf"))
-		priors = Counter(float("-inf"))
-		posteriors = Counter(float("-inf"))
+		likelihoods = CounterMap(float("-inf"))
+		priors = CounterMap(float("-inf"))
+		posteriors = CounterMap(float("-inf"))
 		sizes = Counter()
 
-		print "*** start: %s ***" % repr(self._cluster_to_datum.items())
 		for c_idx, cluster in self._cluster_to_datum.iteritems():
 			if not cluster:
 				continue
 			sizes[c_idx] = len(cluster)
-			cluster_mean = sum(cluster, Counter()) / float(sizes[c_idx])
+			cluster_mean = sum(cluster) / float(sizes[c_idx])
 
-			mean = self._mh_mean * self._mh_tau
-			mean += cluster_mean * self._cluster_tau
-			mean /= (self._mh_tau + sizes[c_idx] * self._cluster_tau)
-			precision = self._mh_tau + sizes[c_idx] * self._cluster_tau
+			# the updated mean
+			new_mean = (cluster_mean * sizes[c_idx] + datum) / (sizes[c_idx] + 1)
 
-			diff = datum - mean
-			point_score = diff * diff
-			point_score *= precision * -0.5
-			posteriors[c_idx] = point_score.total_count()
+			posterior_precision = self._mh_tau + self._cluster_tau
+#			raise Exception(self._mh_tau, self._cluster_tau, posterior_precision)
+			# convex combination for mean
+			posterior_mean = self._mh_mean * self._mh_tau
+			posterior_mean += cluster_mean * self._cluster_tau
+			posterior_mean /= posterior_precision
 
+			posteriors[c_idx] = GaussianDistribution.log_prob(new_mean, posterior_mean, posterior_precision)
 			# prior is keyed on the (potentially) updated params
-			prior = self._mh_tau * -0.5
-			prior_cluster_mean = cluster_mean + (datum / sizes[c_idx])
-			prior *= (prior_cluster_mean - self._mh_mean)
-			prior *= (prior_cluster_mean - self._mh_mean)
-			priors[c_idx] = sum(prior.itervalues())
-
-			likelihoods[c_idx] = -0.5 * self._cluster_tau
-			likelihoods[c_idx] *= sum(((datum - cluster_mean) * (datum - cluster_mean)).itervalues())
-
-			sizes[c_idx] = sizes[c_idx]
+			priors[c_idx] = GaussianDistribution.log_prob(new_mean, self._mh_mean, self._mh_tau)
+			likelihoods[c_idx] = GaussianDistribution.log_prob(datum, new_mean, self._cluster_tau)
 
 		# Now generate probs for the new cluster
 		# prefer to reuse an old cluster # if possible
 		new_cluster = min([c for c, d in self._cluster_to_datum.iteritems() if not d], len(self._cluster_to_datum))
+#		print " New cluster: %d" % (new_cluster)
 
-		mean = self._mh_mean * self._mh_tau
-		mean += datum * self._cluster_tau
-		mean /= (self._mh_tau + self._cluster_tau)
-		precision = self._cluster_tau
-		diff = datum - mean
-		point_score = diff * diff
-		point_score *= precision * -0.5
-		posteriors[new_cluster] = point_score.total_count()
-		print " New cluster (%d) posterior: %s" % (new_cluster, posteriors[new_cluster])
+		posterior_precision = self._mh_tau + self._cluster_tau
+		posterior_mean = self._mh_mean * self._mh_tau
+		posterior_mean += datum * self._cluster_tau
+		posterior_mean /= posterior_precision
 
-		priors[new_cluster] = sum((self._mh_tau * (datum - self._mh_mean) * (datum - self._mh_mean) * -0.5).itervalues())
-		likelihoods[new_cluster] = 0.0
+		posteriors[new_cluster] = GaussianDistribution.log_prob(datum, posterior_mean, posterior_precision)
+		priors[new_cluster] = GaussianDistribution.log_prob(datum, self._mh_mean, self._mh_tau)
+		likelihoods[new_cluster] = GaussianDistribution.log_prob(datum, datum, self._cluster_tau)
 		sizes[new_cluster] = self._concentration
 
-		likelihoods.log_normalize()
-		print "  Likelihoods", likelihoods
-		priors.log_normalize()
-		print "  Priors", priors
-		posteriors.log_normalize()
-		print "  Posteriors:", posteriors
+		for dist in priors, likelihoods, posteriors:
+			if not all(all(v <= 0.0 for v in scores.itervalues()) for scores in dist.itervalues()):
+				print "Not a log distribution: %s" % dist
+				print "(new cluster %d)" % new_cluster
+				print datum
+				for k, scores in dist.iteritems():
+					if all(v <= 0.0 for v in scores.itervalues()): continue
+					print "error on cluster %d" % k
+					print "posteriors: %r" % posteriors[k]
+					print "priors: %r" % priors[k]
+					print "likelihoods: %r" % likelihoods[k]
+					print "sizes: %r" % sizes[k]
+				raise Exception()
+
 		probs = likelihoods + priors - posteriors
-		print " Total probs: %s" % probs
+#		print " Total probs: %s" % probs
 		probs.exp()
 		probs.normalize()
 
+		probs = Counter((k, v.total_count()) for k, v in probs.iteritems())
 		probs *= sizes
-		print " Total probs: %s" % probs
+		probs.normalize()
+#		print " Total probs: %s" % probs
 
+		assert all(0.0 <= p <= 1.0 for p in probs.itervalues()), "Not a distribution: %s" % probs
 		return probs.sample()
 
 	def log_likelihood(self):
@@ -82,47 +103,40 @@ class GaussianClusterer(CRPGibbsSampler):
 		# model)
 
 		# FIXME: This should really be cached for the last invocation
-		score = Counter(default=0.0)
+		score = Counter()
 		for c_idx, cluster in self._cluster_to_datum.iteritems():
 			if not cluster: continue
 			# Evaluate the likelihood of each individual cluster
 			cluster_size = len(cluster)
 			# The mean of the data points belonging to this cluster
 			cluster_datum_mean = sum(cluster) / cluster_size
-			# The MLE of the mean of the cluster given the data points and the prior
-			cluster_mle_mean = cluster_datum_mean
 
-			likelihood = cluster_mle_mean * cluster_mle_mean
-			x = (cluster_size * self._cluster_tau + self._mh_tau)
-			likelihood *= x * x
-			score -= likelihood
-
-			likelihood = cluster_size * self._cluster_tau * cluster_datum_mean
-			likelihood += self._mh_tau * self._mh_mean
-			likelihood *= 2 * cluster_mle_mean
-			score -= likelihood
+			# p(c)
+			score += GaussianDistribution.log_prob(cluster_datum_mean, self._mh_mean, self._mh_tau)
+			# p(x|c)
+			score += sum(GaussianDistribution.log_prob(datum, cluster_datum_mean, self._cluster_tau) for datum in cluster)
 
 		# for the gaussian the dimensions are independent so we should
 		# just be able to combine them directly
-		return sum(score.itervalues())
+		return score.total_count()
 
 	def __init__(self):
 		rand = Random()
 		rand.seed()
-		clusters = 2
+		clusters = 3
 		dims = 2
-		points = 100
+		points = 1000
 		data = []
 		data_to_cluster = dict()
 
 #		means = [tuple(rand.uniform(0, 100) for _ in xrange(dims)) for
 #		_ in xrange(clusters)]
-		means = [(10.0, 10.0), (90.0, 90.0)]
+		means = [(50.0, 60.0), (90.0, 90.0), (70.0, 40.0)]
 		mean_counters = [Counter((('x', x), ('y', y))) for (x, y) in means]
 
-		cluster_mean = sum(mean_counters, Counter()) / len(means)
+		cluster_mean = sum(mean_counters) / len(means)
 		lm = len(means) - 1
-		cluster_precision = Counter((k, lm / v) for k, v in sum(((m - cluster_mean) * (m - cluster_mean) for m in mean_counters), Counter()).iteritems())
+		cluster_precision = lm / sum(((m - cluster_mean) ** 2 for m in mean_counters)) / 15
 
 		cluster_to_data = defaultdict(list)
 		for _ in xrange(points):
@@ -135,7 +149,8 @@ class GaussianClusterer(CRPGibbsSampler):
 			cluster_to_data[cluster].append(point)
 
 		for cluster, cdata in cluster_to_data.iteritems():
-			print "Cluster (size %d): %s" % (len(cdata), sum(cdata, Counter()) / len(cdata))
+			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
+			
 		data = dict(enumerate(data))
 		# and hand over work to the sampler
 		super(GaussianClusterer, self).__init__(data, mh_mean=cluster_mean, mh_precision=cluster_precision)
@@ -143,6 +158,7 @@ class GaussianClusterer(CRPGibbsSampler):
 	def run(self, iterations):
 		# generate random means and sample points from them
 		self.gibbs(iterations)
+		self.plot(iterations)
 
 if __name__ == "__main__":
 	problem = GaussianClusterer()

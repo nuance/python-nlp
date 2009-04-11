@@ -1,15 +1,13 @@
 import datetime
 import itertools
-from math import exp, log, sqrt
 
 import rpy2.robjects as robjects
 
 from counter import Counter
 
-import sys
-
 class CRPGibbsSampler(object):
-	def __init__(self, data, gibbs_iterations=1, cluster_precision=0.25, mh_mean=Counter(default=1.0), mh_precision=1.0):
+	def __init__(self, data, gibbs_iterations=1, cluster_precision=Counter(1.0 / 16.0),
+				 mh_mean=Counter(1.0), mh_precision=Counter(1.0)):
 		"""
 		data: for now, counters of score-for-context (HUGE cardinality)
 		gibbs_iterations: should be a number >= 1, large enough to
@@ -22,7 +20,7 @@ class CRPGibbsSampler(object):
 		self._max_y = max(v['y'] for v in data.itervalues())
 		self._min_y = min(v['y'] for v in data.itervalues())
 
-		self._concentration = 0.9
+		self._concentration = 1.0
 
 		# fixed variance
 		self._cluster_tau = cluster_precision
@@ -59,16 +57,16 @@ class CRPGibbsSampler(object):
 			iterations = self._gibbs_iterations
 
 		for iteration in xrange(iterations):
-			if iteration % 1000 == 0:
+			if iteration % 100 == 0:
 				print "*** Iteration %d starting (%s) ***" % (iteration, datetime.datetime.now())
 
 			if self._cluster_to_datum:
 				self._iteration_likelihoods.append(self.log_likelihood())
 				self._cluster_count.append(len([c for c, v in self._cluster_to_datum.iteritems() if v]))
-				if iteration % 1000 == 0:
+				if iteration % 100 == 0:
 					print "    Clusters: %d" % self._cluster_count[-1]
 					print "    Likelihood: %f" % self._iteration_likelihoods[-1]
-					self.plot(iteration)
+#					self.plot(iteration)
 			for name, datum in self._data.iteritems():
 				# resample cluster for this data, given all other data
 				# as fixed
@@ -102,13 +100,13 @@ class CRPGibbsSampler(object):
 			   [self._min_y - 1.0, self._max_y + 1.0],
 			   xlab="x", ylab="y", col="white")
 
+		self._cluster_to_datum = dict((cluster, data) for cluster, data in self._cluster_to_datum.iteritems() if data)
+
 		colors = itertools.cycle(("red", "green", "blue", "black", "purple", "orange"))
 		for (cluster, cdata), color in zip(self._cluster_to_datum.iteritems(), colors):
 			points_x = robjects.FloatVector([point['x'] for point in cdata])
 			points_y = robjects.FloatVector([point['y'] for point in cdata])
 
-			if not len(cdata): continue
-			
 			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
 			print color
 			r.points(points_x, points_y, col=color)
