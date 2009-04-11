@@ -1,13 +1,7 @@
 import datetime
-import itertools
-
-import rpy2.robjects as robjects
-
-from counter import Counter
 
 class CRPGibbsSampler(object):
-	def __init__(self, data, gibbs_iterations=1, cluster_precision=Counter(1.0 / 16.0),
-				 mh_mean=Counter(1.0), mh_precision=Counter(1.0)):
+	def __init__(self, data, gibbs_iterations=1):
 		"""
 		data: for now, counters of score-for-context (HUGE cardinality)
 		gibbs_iterations: should be a number >= 1, large enough to
@@ -15,19 +9,7 @@ class CRPGibbsSampler(object):
 		"""
 		self._gibbs_iterations = gibbs_iterations
 		self._data = data
-		self._max_x = max(v['x'] for v in data.itervalues())
-		self._min_x = min(v['x'] for v in data.itervalues())
-		self._max_y = max(v['y'] for v in data.itervalues())
-		self._min_y = min(v['y'] for v in data.itervalues())
-
 		self._concentration = 1.0
-
-		# fixed variance
-		self._cluster_tau = cluster_precision
-
-		# hyper-params for the mean
-		self._mh_tau = mh_precision
-		self._mh_mean = mh_mean
 
 		# These will be learned during sampling
 		self._datum_to_cluster = dict()
@@ -57,13 +39,13 @@ class CRPGibbsSampler(object):
 			iterations = self._gibbs_iterations
 
 		for iteration in xrange(iterations):
-			if iteration % 100 == 0:
+			if iteration % 1 == 0:
 				print "*** Iteration %d starting (%s) ***" % (iteration, datetime.datetime.now())
 
 			if self._cluster_to_datum:
 				self._iteration_likelihoods.append(self.log_likelihood())
 				self._cluster_count.append(len([c for c, v in self._cluster_to_datum.iteritems() if v]))
-				if iteration % 100 == 0:
+				if iteration % 1 == 0:
 					print "    Clusters: %d" % self._cluster_count[-1]
 					print "    Likelihood: %f" % self._iteration_likelihoods[-1]
 #					self.plot(iteration)
@@ -84,34 +66,3 @@ class CRPGibbsSampler(object):
 	def log_likelihood(self):
 		raise Exception("NotImplemented")
 
-	def plot(self, iteration):
-		r = robjects.r
-		r.png("likelihood-%d.png" % iteration)
-		r.plot(robjects.IntVector(range(1, len(self._iteration_likelihoods) + 1)), robjects.FloatVector(self._iteration_likelihoods), xlab="iteration", ylab="likelihood")
-		r['dev.off']()
-
-		r = robjects.r
-		r.png("cluster-count-%d.png" % iteration)
-		r.plot(robjects.IntVector(range(1, len(self._cluster_count) + 1)), robjects.FloatVector(self._cluster_count), xlab="iteration", ylab="# clusters")
-		r['dev.off']()
-
-		r.png("test-%d.png" % iteration)
-		r.plot([self._min_x - 1.0, self._max_x + 1.0],
-			   [self._min_y - 1.0, self._max_y + 1.0],
-			   xlab="x", ylab="y", col="white")
-
-		self._cluster_to_datum = dict((cluster, data) for cluster, data in self._cluster_to_datum.iteritems() if data)
-
-		colors = itertools.cycle(("red", "green", "blue", "black", "purple", "orange"))
-		for (cluster, cdata), color in zip(self._cluster_to_datum.iteritems(), colors):
-			points_x = robjects.FloatVector([point['x'] for point in cdata])
-			points_y = robjects.FloatVector([point['y'] for point in cdata])
-
-			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
-			print color
-			r.points(points_x, points_y, col=color)
-
-			cmean = sum(cdata) / len(cdata)
-			r.points(cmean['x'], cmean['y'], pch=21, cex=4.0, col=color)
-
-		r['dev.off']()
