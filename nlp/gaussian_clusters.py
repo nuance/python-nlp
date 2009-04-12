@@ -1,6 +1,5 @@
-from collections import defaultdict
 import itertools
-from random import Random
+import random
 import sys
 
 import rpy2.robjects as robjects
@@ -43,6 +42,8 @@ class GaussianClusterer(CRPGibbsSampler):
 		new_cluster = min([c for c, d in self._cluster_to_datum.iteritems() if not d], len(self._cluster_to_datum))
 #		print " New cluster: %d" % (new_cluster)
 
+		sizes[new_cluster] = self._concentration
+
 		posterior_precision = self._prior_precision + self._cluster_precision
 		posterior_mean = self._prior_mean * self._prior_precision
 		posterior_mean += datum * self._cluster_precision
@@ -51,7 +52,6 @@ class GaussianClusterer(CRPGibbsSampler):
 		posteriors[new_cluster] = Gaussian.log_prob(datum, posterior_mean, posterior_precision)
 		priors[new_cluster] = Gaussian.log_prob(datum, self._prior_mean, self._prior_precision)
 		likelihoods[new_cluster] = Gaussian.log_prob(datum, datum, self._cluster_precision)
-		sizes[new_cluster] = self._concentration
 
 		for dist in priors, likelihoods, posteriors:
 			if not all(all(v <= 0.0 for v in scores.itervalues()) for scores in dist.itervalues()):
@@ -70,7 +70,6 @@ class GaussianClusterer(CRPGibbsSampler):
 		probs = likelihoods + priors - posteriors
 #		print " Total probs: %s" % probs
 		probs.exp()
-		probs.normalize()
 
 		probs = Counter((k, v.total_count()) for k, v in probs.iteritems())
 		probs *= sizes
@@ -103,41 +102,12 @@ class GaussianClusterer(CRPGibbsSampler):
 		# just be able to combine them directly
 		return score.total_count()
 
-	def __init__(self):
-		rand = Random()
-		rand.seed()
-		clusters = 3
-		dims = 2
-		points = 1000
-		data = []
-		data_to_cluster = dict()
-
-#		means = [tuple(rand.uniform(0, 100) for _ in xrange(dims)) for
-#		_ in xrange(clusters)]
-		means = [(50.0, 60.0), (90.0, 90.0), (70.0, 40.0)]
-		mean_counters = [Counter((('x', x), ('y', y))) for (x, y) in means]
-
-		self._prior_mean = sum(mean_counters) / len(mean_counters)
-		lm = len(means) - 1
-		self._prior_precision = lm / sum(((m - self._prior_mean) ** 2 for m in mean_counters)) / 15
-		# fixed variance
-		variance = 4.0
-		self._cluster_precision = Counter(1.0 / variance ** 2)
-
-		cluster_to_data = defaultdict(list)
-		for _ in xrange(points):
-			cluster = rand.sample(means, 1)[0]
-			point = Counter()
-			point['x'] = rand.gauss(cluster[0], variance)
-			point['y'] = rand.gauss(cluster[1], variance)
-			data.append(point)
-			data_to_cluster[tuple(point.values())] = cluster
-			cluster_to_data[cluster].append(point)
-
-		for cluster, cdata in cluster_to_data.iteritems():
-			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
-			
+	def __init__(self, data, cluster_precision, prior_mean, prior_precision):
 		data = dict(enumerate(data))
+
+		self._cluster_precision = cluster_precision
+		self._prior_mean = prior_mean
+		self._prior_precision = prior_precision
 
 		self._max_x = max(v['x'] for v in data.itervalues())
 		self._min_x = min(v['x'] for v in data.itervalues())
@@ -184,6 +154,33 @@ class GaussianClusterer(CRPGibbsSampler):
 
 		r['dev.off']()
 
+
+def points(means, variance, prior_mean, prior_precision, num_points=1000):
+	points = []
+	for _ in xrange(num_points):
+		cluster = random.sample(means, 1)[0]
+		point = Counter()
+		point['x'] = random.gauss(cluster[0], variance)
+		point['y'] = random.gauss(cluster[1], variance)
+		points.append(point)
+		
+	return points
+
 if __name__ == "__main__":
-	problem = GaussianClusterer()
+	cluster = 3
+	dims = 2
+#	means = [tuple(rand.uniform(0, 100) for _ in xrange(dims)) for
+#	_ in xrange(clusters)]
+	means = [(50.0, 60.0), (90.0, 90.0), (70.0, 40.0)]
+	mean_counters = [Counter((('x', x), ('y', y))) for (x, y) in means]
+
+	prior_mean = sum(mean_counters) / len(mean_counters)
+	lm = len(means) - 1
+	prior_precision = lm / sum(((m - prior_mean) ** 2 for m in mean_counters)) / 15
+	# fixed variance
+	variance = 4.0
+	cluster_precision = Counter(1.0 / variance ** 2)
+
+	problem = GaussianClusterer(points(means, variance, prior_mean, prior_precision, num_points=1000), cluster_precision, prior_mean, prior_precision)
 	problem.run(int(sys.argv[1]))
+
