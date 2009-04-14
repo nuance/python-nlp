@@ -48,7 +48,7 @@ class CRPGibbsSampler(object):
 				if iteration % 1 == 0:
 					print "    Clusters: %d" % self._cluster_count[-1]
 					print "    Likelihood: %f" % self._iteration_likelihoods[-1]
-#					self.plot(iteration)
+					self.plot(iteration, cluster_only=True)
 			for name, datum in self._data.iteritems():
 				# resample cluster for this data, given all other data
 				# as fixed
@@ -61,6 +61,7 @@ class CRPGibbsSampler(object):
 				# and, finally, add it back in
 				self._add_datum(name, datum, cluster)
 
+		self.plot(iteration)
 		print "Finished Gibbs with likelihood: %f" % self.log_likelihood()
 
 	def log_likelihood(self):
