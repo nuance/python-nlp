@@ -1,5 +1,6 @@
 #!/bin/bash
 
 for test in `ls test*.py`; do
+	echo "Running $test"
 	python $test -v 2>&1 | egrep "^test" | egrep -v "ok$"
 done
