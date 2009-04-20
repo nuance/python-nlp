@@ -2,7 +2,7 @@ from copy import copy
 from itertools import izip
 from time import time
 
-class Minimizer:
+class Minimizer(object):
 	min_iterations = 0
 	max_iterations = 25
 	epsilon = 1e-10

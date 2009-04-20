@@ -5,7 +5,6 @@ import sys
 import rpy2.robjects as robjects
 
 from counter import Counter
-from countermap import CounterMap
 from crp import CRPGibbsSampler
 from distributions import Gaussian
 

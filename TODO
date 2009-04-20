@@ -1,25 +1,26 @@
-Near-horizon goals (loosely pulled from DESIGN, but more pragmatic, not in any particular order)
-- C module
-  - Refactor nlp C module (pull counter into a separate file)
-  + Refactor counter C module to re-use code better (define arithmetic ops as a set of macro calls to reduce code duplication)
-  + Counter in-place scalar ops
-  + Better error messages (not just internal error)
-+ HMM
-+ Log-score HMM (current implementation underflows too much)
-- Viterbi improvements
-  - Higher-order hmm
-  - Generalize to generic chain model (pull out viterbi decoding)
-  - Rewrite core viterbi in C
-- HMM optimizations (frozen counter to deal with arg max time? need some better way of profiling the counter type)
-- Approximate decoding (beam search, probably do this after the generic chain model stuff)
-- MEMM implementation
-- Emission smoothing
-  + Uniform fallbacks
-  + Naive bayes fallback
-  - Maxent emission fallbacks (way too slow for now)
-  - Generalized fallback model (fits in with pickling better?)
-- Checkpointing / pickling support (for parsing / training etc)
-- Transition smoothing -  attempt at learning class hierarchy to smooth transitions)
-+ Penn treebank reader
-- Analysis tool for classifiers / features (for NB & MaxEnt)
-- Verifiably open datasets / standard data sets
+#-*- mode:org -*-
+* Near-horizon goals (loosely pulled from DESIGN, but more pragmatic, not in any particular order)
+** C module
+*** TODO Refactor nlp C module (pull counter into a separate file)
+*** DONE Refactor counter C module to re-use code better (define arithmetic ops as a set of macro calls to reduce code duplication)
+*** DONE Counter in-place scalar ops
+*** DONE Better error messages (not just internal error)
+** DONE HMM
+** DONE Log-score HMM (current implementation underflows too much)
+** Viterbi improvements
+*** TODO Higher-order hmm
+*** TODO Generalize to generic chain model (pull out viterbi decoding)
+*** TODO Rewrite core viterbi in C
+** TODO HMM optimizations (frozen counter to deal with arg max time? need some better way of profiling the counter type)
+** TODO Approximate decoding (beam search, probably do this after the generic chain model stuff)
+** TODO MEMM implementation
+** Emission smoothing
+*** DONE Uniform fallbacks
+*** DONE Naive bayes fallback
+*** TODO Maxent emission fallbacks (way too slow for now)
+*** TODO Generalized fallback model (fits in with pickling better?)
+** TODO Checkpointing / pickling support (for parsing / training etc)
+** TODO Transition smoothing -  attempt at learning class hierarchy to smooth transitions)
+** DONE Penn treebank reader
+** TODO Analysis tool for classifiers / features (for NB & MaxEnt)
+** TODO Verifiably open datasets / standard data sets
