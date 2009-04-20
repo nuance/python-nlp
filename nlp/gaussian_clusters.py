@@ -9,32 +9,43 @@ from crp import CRPGibbsSampler
 from distributions import Gaussian
 
 class GaussianClusterer(CRPGibbsSampler):
+
+	def _cluster_log_probs(self, cluster_size, cluster_mean, new_point):
+		""" Return the posterior, prior, and likelihood of new_point
+		being in the cluster of size cluster_size centered at cluster_mean
+		"""
+		# the updated mean
+		new_mean = (cluster_mean * cluster_size + new_point) / (cluster_size + 1)
+
+		posterior_precision = self._prior_precision + self._cluster_precision
+#			raise Exception(self._prior_precision, self._cluster_precision, posterior_precision)
+		# convex combination for mean
+		posterior_mean = self._prior_mean * self._prior_precision
+		posterior_mean += cluster_mean * self._cluster_precision
+		posterior_mean /= posterior_precision
+
+		posterior = Gaussian.log_prob(new_mean, posterior_mean, posterior_precision)
+		# prior is keyed on the (potentially) updated params
+		prior = Gaussian.log_prob(new_mean, self._prior_mean, self._prior_precision)
+		likelihood = Gaussian.log_prob(new_point, new_mean, self._cluster_precision)
+
+		return posterior, prior, likelihood
+
 	def _sample_datum(self, datum):
 		likelihoods = Counter(float("-inf"))
 		priors = Counter(float("-inf"))
 		posteriors = Counter(float("-inf"))
 		sizes = Counter()
 
+		# Regenerate all the cluster params (should be caching this,
+		# not doing it inline)
 		for c_idx, cluster in self._cluster_to_datum.iteritems():
 			if not cluster:
 				continue
 			sizes[c_idx] = len(cluster)
 			cluster_mean = sum(cluster) / float(sizes[c_idx])
 
-			# the updated mean
-			new_mean = (cluster_mean * sizes[c_idx] + datum) / (sizes[c_idx] + 1)
-
-			posterior_precision = self._prior_precision + self._cluster_precision
-#			raise Exception(self._prior_precision, self._cluster_precision, posterior_precision)
-			# convex combination for mean
-			posterior_mean = self._prior_mean * self._prior_precision
-			posterior_mean += cluster_mean * self._cluster_precision
-			posterior_mean /= posterior_precision
-
-			posteriors[c_idx] = Gaussian.log_prob(new_mean, posterior_mean, posterior_precision)
-			# prior is keyed on the (potentially) updated params
-			priors[c_idx] = Gaussian.log_prob(new_mean, self._prior_mean, self._prior_precision)
-			likelihoods[c_idx] = Gaussian.log_prob(datum, new_mean, self._cluster_precision)
+			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(sizes[c_idx], cluster_mean, datum)
 
 		# Now generate probs for the new cluster
 		# prefer to reuse an old cluster # if possible
@@ -43,14 +54,7 @@ class GaussianClusterer(CRPGibbsSampler):
 
 		sizes[new_cluster] = self._concentration
 
-		posterior_precision = self._prior_precision + self._cluster_precision
-		posterior_mean = self._prior_mean * self._prior_precision
-		posterior_mean += datum * self._cluster_precision
-		posterior_mean /= posterior_precision
-
-		posteriors[new_cluster] = Gaussian.log_prob(datum, posterior_mean, posterior_precision)
-		priors[new_cluster] = Gaussian.log_prob(datum, self._prior_mean, self._prior_precision)
-		likelihoods[new_cluster] = Gaussian.log_prob(datum, datum, self._cluster_precision)
+		posteriors[new_cluster], priors[new_cluster], likelihoods[new_cluster] = self._cluster_log_probs(sizes[new_cluster], datum, datum)
 
 		for dist in priors, likelihoods, posteriors:
 			if not all(v <= 0.0 for v in dist.itervalues()):
