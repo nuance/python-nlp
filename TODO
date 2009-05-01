@@ -8,9 +8,9 @@
 ** DONE HMM
 ** DONE Log-score HMM (current implementation underflows too much)
 ** Viterbi improvements
-*** TODO Higher-order hmm
+*** DONE Higher-order hmm
 *** TODO Generalize to generic chain model (pull out viterbi decoding)
-*** TODO Rewrite core viterbi in C
+*** DONE Rewrite core viterbi in C
 ** TODO HMM optimizations (frozen counter to deal with arg max time? need some better way of profiling the counter type)
 ** TODO Approximate decoding (beam search, probably do this after the generic chain model stuff)
 ** TODO MEMM implementation
@@ -19,7 +19,7 @@
 *** DONE Naive bayes fallback
 *** TODO Maxent emission fallbacks (way too slow for now)
 *** TODO Generalized fallback model (fits in with pickling better?)
-** TODO Checkpointing / pickling support (for parsing / training etc)
+** DONE Checkpointing / pickling support (for parsing / training etc)
 ** TODO Transition smoothing -  attempt at learning class hierarchy to smooth transitions)
 ** DONE Penn treebank reader
 ** TODO Analysis tool for classifiers / features (for NB & MaxEnt)

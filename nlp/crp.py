@@ -9,7 +9,7 @@ class CRPGibbsSampler(object):
 		"""
 		self._gibbs_iterations = gibbs_iterations
 		self._data = data
-		self._concentration = 1.0
+		self._concentration = 5.0
 
 		# These will be learned during sampling
 		self._datum_to_cluster = dict()
@@ -56,7 +56,6 @@ class CRPGibbsSampler(object):
 				# first, remove this point from it's current cluster
 				self._remove_datum(name, datum)
 				# then find a new cluster for it to live in
-				cluster = 0
 				cluster = self._sample_datum(datum)
 				# and, finally, add it back in
 				self._add_datum(name, datum, cluster)

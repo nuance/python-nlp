@@ -1,4 +1,5 @@
 import itertools
+from math import sqrt
 import random
 import sys
 
@@ -37,6 +38,8 @@ class GaussianClusterer(CRPGibbsSampler):
 		posteriors = Counter(float("-inf"))
 		sizes = Counter()
 
+#		print "Sampling %s from: " % datum
+
 		# Regenerate all the cluster params (should be caching this,
 		# not doing it inline)
 		for c_idx, cluster in self._cluster_to_datum.iteritems():
@@ -46,6 +49,14 @@ class GaussianClusterer(CRPGibbsSampler):
 			cluster_mean = sum(cluster) / float(sizes[c_idx])
 
 			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(sizes[c_idx], cluster_mean, datum)
+
+#			print "\t%s from %s" % (self._cluster_log_probs(sizes[c_idx], cluster_mean, datum), cluster_mean)
+			if all(prob == float("-inf") for prob in (priors[c_idx], likelihoods[c_idx], posteriors[c_idx])):
+				del priors[c_idx]
+				del likelihoods[c_idx]
+				del posteriors[c_idx]
+				del sizes[c_idx]
+				continue
 
 		# Now generate probs for the new cluster
 		# prefer to reuse an old cluster # if possible
@@ -71,11 +82,9 @@ class GaussianClusterer(CRPGibbsSampler):
 				raise Exception()
 
 		probs = likelihoods + priors - posteriors
-#		print " Total probs: %s" % probs
 		probs.exp()
 		probs *= sizes
 		probs.normalize()
-#		print " Total probs: %s" % probs
 
 		assert all(0.0 <= p <= 1.0 for p in probs.itervalues()), "Not a distribution: %s" % probs
 		return probs.sample()
@@ -127,11 +136,11 @@ class GaussianClusterer(CRPGibbsSampler):
 		r = robjects.r
 
 		if not cluster_only:
-			# 		r.png("likelihood-%d.png" % iteration)
-			# 		r.plot(robjects.IntVector(range(1, len(self._iteration_likelihoods) + 1)),
-			# 			   robjects.FloatVector(self._iteration_likelihoods),
-			# 			   xlab="iteration", ylab="likelihood")
-			# 		r['dev.off']()
+#			r.png("likelihood-%d.png" % iteration)
+#			r.plot(robjects.IntVector(range(1, len(self._iteration_likelihoods) + 1)),
+#			robjects.FloatVector(self._iteration_likelihoods),
+#							     xlab="iteration", ylab="likelihood")
+#			r['dev.off']()
 
 			r.png("cluster-count-%d.png" % iteration)
 			r.plot(robjects.IntVector(range(1, len(self._cluster_count) + 1)), robjects.FloatVector(self._cluster_count), xlab="iteration", ylab="# clusters")
@@ -141,7 +150,7 @@ class GaussianClusterer(CRPGibbsSampler):
 		r.plot([self._min_x - 1.0, self._max_x + 1.0],
 			   [self._min_y - 1.0, self._max_y + 1.0],
 			   xlab="x", ylab="y", col="white")
-
+			
 		self._cluster_to_datum = dict((cluster, data) for cluster, data in self._cluster_to_datum.iteritems() if data)
 
 		colors = itertools.cycle(("red", "green", "blue", "black", "purple", "orange"))
@@ -152,14 +161,17 @@ class GaussianClusterer(CRPGibbsSampler):
 #			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
 #			print color
 			r.points(points_x, points_y, col=color)
-
+			
+			# Draw the 95% interval as a circle around the center
 			cmean = sum(cdata) / len(cdata)
-			r.points(cmean['x'], cmean['y'], pch=21, cex=4.0, col=color)
+			cdeviation = (sum((data - cmean)**2 for data in cdata) / (len(cdata))).total_count() / 2
+
+			r.points(cmean['x'], cmean['y'], pch=21, cex=cdeviation, col=color)
 
 		r['dev.off']()
 
 
-def points(means, std_dev, prior_mean, prior_precision, num_points=1000):
+def points(means, std_dev, num_points=1000):
 	points = []
 	for _ in xrange(num_points):
 		cluster = random.sample(means, 1)[0]
@@ -170,20 +182,31 @@ def points(means, std_dev, prior_mean, prior_precision, num_points=1000):
 		
 	return points
 
+def xy_cnt(points):
+	return [Counter(zip(('x', 'y'), p)) for p in points]
+
 if __name__ == "__main__":
-	cluster = 3
-	dims = 2
-#	means = [tuple(rand.uniform(0, 100) for _ in xrange(dims)) for
-#	_ in xrange(clusters)]
-	means = [(10.0, 10.0), (10.0, 180.0), (105.0, 45.0)]
-	mean_counters = [Counter((('x', x), ('y', y))) for (x, y) in means]
+	clusters = 3
 
-	prior_mean = sum(mean_counters) / len(mean_counters)
-	prior_precision = len(means) / sum(((m - prior_mean) ** 2 for m in mean_counters))
+	# Prior params
+	prior_mean = (50.0, 50.0)
+	prior_std_dev = 1000.0
+	prior_precision = 1.0 / (prior_std_dev**2)
+
+	# Draw the means from the prior params
+	#means = [(random.gauss(prior_mean[0], prior_std_dev), random.gauss(prior_mean[1], prior_std_dev)) for _ in xrange(clusters)]
+	means = [(70.0, 10.0), (70.0, 90.0), (10.0, 50.0)]
+
+	prior_mean = xy_cnt([prior_mean])[0]
+	prior_precision = Counter(prior_precision)
+	mean_counters = xy_cnt(means)
+
+	print "Cluster means: %s" % mean_counters
+
 	# fixed variance
-	std_dev = 5.0
-	cluster_precision = Counter(1.0 / std_dev**2) / 100
+	std_dev = 1.0
+	cluster_precision = Counter(1.0 / std_dev**2)
 
-	problem = GaussianClusterer(points(means, std_dev, prior_mean, prior_precision, num_points=1000), cluster_precision, prior_mean, prior_precision)
+	problem = GaussianClusterer(points(means, std_dev, num_points=10), cluster_precision, prior_mean, prior_precision)
 	problem.run(int(sys.argv[1]))
 
