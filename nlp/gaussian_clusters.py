@@ -1,5 +1,4 @@
 import itertools
-from math import sqrt
 import random
 import sys
 
@@ -84,6 +83,12 @@ class GaussianClusterer(CRPGibbsSampler):
 		probs = likelihoods + priors - posteriors
 		probs.exp()
 		probs *= sizes
+
+		# filter out nan
+		for k, v in probs.items():
+			if v != v:
+				del probs[k]
+
 		probs.normalize()
 
 		assert all(0.0 <= p <= 1.0 for p in probs.itervalues()), "Not a distribution: %s" % probs
@@ -190,7 +195,7 @@ if __name__ == "__main__":
 
 	# Prior params
 	prior_mean = (50.0, 50.0)
-	prior_std_dev = 1000.0
+	prior_std_dev = 100.0
 	prior_precision = 1.0 / (prior_std_dev**2)
 
 	# Draw the means from the prior params
@@ -207,6 +212,6 @@ if __name__ == "__main__":
 	std_dev = 1.0
 	cluster_precision = Counter(1.0 / std_dev**2)
 
-	problem = GaussianClusterer(points(means, std_dev, num_points=10), cluster_precision, prior_mean, prior_precision)
+	problem = GaussianClusterer(points(means, std_dev, num_points=100), cluster_precision, prior_mean, prior_precision)
 	problem.run(int(sys.argv[1]))
 
