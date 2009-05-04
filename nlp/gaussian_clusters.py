@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
 	# Prior params
 	prior_mean = (50.0, 50.0)
-	prior_std_dev = 100.0
+	prior_std_dev = 250.0
 	prior_precision = 1.0 / (prior_std_dev**2)
 
 	# Draw the means from the prior params
@@ -209,9 +209,9 @@ if __name__ == "__main__":
 	print "Cluster means: %s" % mean_counters
 
 	# fixed variance
-	std_dev = 1.0
+	std_dev = 10.0
 	cluster_precision = Counter(1.0 / std_dev**2)
 
-	problem = GaussianClusterer(points(means, std_dev, num_points=100), cluster_precision, prior_mean, prior_precision)
+	problem = GaussianClusterer(points(means, std_dev/2.0, num_points=100), cluster_precision, prior_mean, prior_precision)
 	problem.run(int(sys.argv[1]))
 

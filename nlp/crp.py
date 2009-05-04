@@ -45,9 +45,9 @@ class CRPGibbsSampler(object):
 			if self._cluster_to_datum:
 				self._iteration_likelihoods.append(self.log_likelihood())
 				self._cluster_count.append(len([c for c, v in self._cluster_to_datum.iteritems() if v]))
-				if iteration % 1 == 0:
-					print "    Clusters: %d" % self._cluster_count[-1]
-					print "    Likelihood: %f" % self._iteration_likelihoods[-1]
+				print "    Clusters: %d" % self._cluster_count[-1]
+				print "    Likelihood: %f" % self._iteration_likelihoods[-1]
+				if iteration % 10 == 0:
 					self.plot(iteration, cluster_only=True)
 			for name, datum in self._data.iteritems():
 				# resample cluster for this data, given all other data
