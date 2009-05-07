@@ -113,6 +113,8 @@ class GaussianClusterer(CRPGibbsSampler):
 			# p(x|c)
 			score += sum(Gaussian.log_prob(datum, cluster_datum_mean, self._cluster_precision) for datum in cluster)
 
+			# score => p(x, c)
+
 		# for the gaussian the dimensions are independent so we should
 		# just be able to combine them directly
 		return score.total_count()
