@@ -18,7 +18,6 @@ class GaussianClusterer(CRPGibbsSampler):
 		new_mean = (cluster_mean * cluster_size + new_point) / (cluster_size + 1)
 
 		posterior_precision = self._prior_precision + self._cluster_precision
-#			raise Exception(self._prior_precision, self._cluster_precision, posterior_precision)
 		# convex combination for mean
 		posterior_mean = self._prior_mean * self._prior_precision
 		posterior_mean += cluster_mean * self._cluster_precision
@@ -37,7 +36,6 @@ class GaussianClusterer(CRPGibbsSampler):
 		posteriors = Counter(float("-inf"))
 		sizes = Counter()
 
-#		print "Sampling %s from: " % datum
 
 		# Regenerate all the cluster params (should be caching this,
 		# not doing it inline)
@@ -49,7 +47,6 @@ class GaussianClusterer(CRPGibbsSampler):
 
 			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(sizes[c_idx], cluster_mean, datum)
 
-#			print "\t%s from %s" % (self._cluster_log_probs(sizes[c_idx], cluster_mean, datum), cluster_mean)
 			if all(prob == float("-inf") for prob in (priors[c_idx], likelihoods[c_idx], posteriors[c_idx])):
 				del priors[c_idx]
 				del likelihoods[c_idx]
@@ -60,7 +57,6 @@ class GaussianClusterer(CRPGibbsSampler):
 		# Now generate probs for the new cluster
 		# prefer to reuse an old cluster # if possible
 		new_cluster = min([c for c, d in self._cluster_to_datum.iteritems() if not d], len(self._cluster_to_datum))
-#		print " New cluster: %d" % (new_cluster)
 
 		sizes[new_cluster] = self._concentration
 
@@ -143,11 +139,11 @@ class GaussianClusterer(CRPGibbsSampler):
 		r = robjects.r
 
 		if not cluster_only:
-#			r.png("likelihood-%d.png" % iteration)
-#			r.plot(robjects.IntVector(range(1, len(self._iteration_likelihoods) + 1)),
-#			robjects.FloatVector(self._iteration_likelihoods),
-#							     xlab="iteration", ylab="likelihood")
-#			r['dev.off']()
+			r.png("likelihood-%d.png" % iteration)
+			r.plot(robjects.IntVector(range(1, len(self._iteration_likelihoods) + 1)),
+			robjects.FloatVector(self._iteration_likelihoods),
+							     xlab="iteration", ylab="likelihood")
+			r['dev.off']()
 
 			r.png("cluster-count-%d.png" % iteration)
 			r.plot(robjects.IntVector(range(1, len(self._cluster_count) + 1)), robjects.FloatVector(self._cluster_count), xlab="iteration", ylab="# clusters")

@@ -60,7 +60,6 @@ class CRPGibbsSampler(object):
 				# and, finally, add it back in
 				self._add_datum(name, datum, cluster)
 
-		self.plot(iteration)
 		print "Finished Gibbs with likelihood: %f" % self.log_likelihood()
 
 	def log_likelihood(self):
