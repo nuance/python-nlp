@@ -2,6 +2,8 @@ from copy import copy
 from itertools import chain, izip, repeat
 from math import exp, log
 
+import numpy
+
 from counter import Counter
 
 class CounterMap(dict):
@@ -90,6 +92,9 @@ class CounterMap(dict):
 
 		return ret
 
+	def __rmul__(self, other):
+		return self * other
+
 	def __add__(self, other):
 		ret = CounterMap()
 
@@ -103,6 +108,9 @@ class CounterMap(dict):
 			ret[key] = copy(other[key])
 
 		return ret
+
+	def __radd__(self, other):
+		return self + other
 
 	def __sub__(self, other):
 		ret = CounterMap()
@@ -118,11 +126,36 @@ class CounterMap(dict):
 
 		return ret
 	
+	def __rsub__(self, other):
+		return self - other
+
 	def __str__(self):
 		string = ""
 		for (key, counter) in self.iteritems():
 			string += "%s : %s\n" % (key, counter)
 		return string.rstrip()
+
+	def matrix(self):
+		all_keys = set(self.iterkeys())
+
+		for cnter in self.itervalues():
+			all_keys.update(cnter.iterkeys())
+
+		all_keys = list(sorted(all_keys))
+		return all_keys, numpy.array([[self[key][sub_key] for sub_key in all_keys]
+									  for key in all_keys])
+
+
+def outer_product(a, b):
+	# sort keys from both and return a countermap of the resulting
+	# matrix
+	outer = CounterMap(a.default * b.default)
+
+	for a_key, a_value in a.iteritems():
+		for b_key, b_value in b.iteritems():
+			outer[a_key][b_key] = a_value * b_value
+
+	return outer
 
 def test():
 	one_all_spam = CounterMap()
