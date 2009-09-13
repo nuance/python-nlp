@@ -136,10 +136,14 @@ class MaxEntWeightFunction(Function):
 
 		return objective
 
-class MaximumEntropyClassifier:
+class MaximumEntropyClassifier(object):
 	labels = None
 	features = None
 	weights = None
+
+	def __init__(self, labels=None, features=None):
+		self.labels = labels
+		self.features = features		
 
 	def get_log_probabilities(self, datum_features):
 		return get_log_probs(datum_features, self.weights, self.labels)

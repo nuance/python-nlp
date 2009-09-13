@@ -5,12 +5,12 @@ import sys
 import rpy2.robjects as robjects
 
 from counter import Counter
+from countermap import CounterMap, outer_product
 from crp import CRPGibbsSampler
 from distributions import Gaussian
 
 class GaussianClusterer(CRPGibbsSampler):
-
-	def _cluster_log_probs(self, cluster_size, cluster_mean, new_point):
+	def _cluster_log_probs(self, cluster_size, cluster_mean, cluster_covariance, new_point):
 		""" Return the posterior, prior, and likelihood of new_point
 		being in the cluster of size cluster_size centered at cluster_mean
 		"""
@@ -36,7 +36,6 @@ class GaussianClusterer(CRPGibbsSampler):
 		posteriors = Counter(float("-inf"))
 		sizes = Counter()
 
-
 		# Regenerate all the cluster params (should be caching this,
 		# not doing it inline)
 		for c_idx, cluster in self._cluster_to_datum.iteritems():
@@ -44,8 +43,9 @@ class GaussianClusterer(CRPGibbsSampler):
 				continue
 			sizes[c_idx] = len(cluster)
 			cluster_mean = sum(cluster) / float(sizes[c_idx])
+			cluster_covariance = 1.0 / float(len(cluster) + 1) * sum(outer_product((pt - cluster_mean), (pt - cluster_mean)) for pt in cluster)
 
-			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(sizes[c_idx], cluster_mean, datum)
+			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(sizes[c_idx], cluster_mean, cluster_covariance, datum)
 
 			if all(prob == float("-inf") for prob in (priors[c_idx], likelihoods[c_idx], posteriors[c_idx])):
 				del priors[c_idx]
@@ -60,7 +60,12 @@ class GaussianClusterer(CRPGibbsSampler):
 
 		sizes[new_cluster] = self._concentration
 
-		posteriors[new_cluster], priors[new_cluster], likelihoods[new_cluster] = self._cluster_log_probs(sizes[new_cluster], datum, datum)
+		# build a really lame covariance matrix for single points
+		covariance = CounterMap()
+		for axis in datum:
+			covariance[axis] = 1.0
+
+		posteriors[new_cluster], priors[new_cluster], likelihoods[new_cluster] = self._cluster_log_probs(sizes[new_cluster], datum, covariance, datum)
 
 		for dist in priors, likelihoods, posteriors:
 			if not all(v <= 0.0 for v in dist.itervalues()):
@@ -135,6 +140,13 @@ class GaussianClusterer(CRPGibbsSampler):
 		self.gibbs(iterations)
 		self.plot(iterations)
 
+	def __draw_cluster(self, r, points, color):
+		# Draw the 95% interval as a circle around the center
+		cmean = sum(points) / len(points)
+		cdeviation = (sum((data - cmean)**2 for data in points) / (len(points))).total_count() / 2
+
+		r.points(cmean['x'], cmean['y'], pch=21, cex=cdeviation, col=color)
+
 	def plot(self, iteration, cluster_only=False):
 		r = robjects.r
 
@@ -164,13 +176,9 @@ class GaussianClusterer(CRPGibbsSampler):
 #			print "Cluster (size %d): %s" % (len(cdata), sum(cdata) / len(cdata))
 #			print color
 			r.points(points_x, points_y, col=color)
+
+			self.__draw_cluster(r, cdata, color)
 			
-			# Draw the 95% interval as a circle around the center
-			cmean = sum(cdata) / len(cdata)
-			cdeviation = (sum((data - cmean)**2 for data in cdata) / (len(cdata))).total_count() / 2
-
-			r.points(cmean['x'], cmean['y'], pch=21, cex=cdeviation, col=color)
-
 		r['dev.off']()
 
 

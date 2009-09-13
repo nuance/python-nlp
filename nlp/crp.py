@@ -62,6 +62,9 @@ class CRPGibbsSampler(object):
 
 		print "Finished Gibbs with likelihood: %f" % self.log_likelihood()
 
+	def plot(self, iteration, cluster_only=False):
+		print "Not implemented"
+
 	def log_likelihood(self):
 		raise Exception("NotImplemented")
 

@@ -96,6 +96,13 @@ class CounterMap(dict):
 		return self * other
 
 	def __add__(self, other):
+		if isinstance(other, (int, long, float)):
+			ret = CounterMap()
+			for key, value in self.iteritems():
+				ret[key] = value + other
+				
+			return ret
+
 		ret = CounterMap()
 
 		for (key, counter) in self.iteritems():
@@ -113,6 +120,9 @@ class CounterMap(dict):
 		return self + other
 
 	def __sub__(self, other):
+		if isinstance(other, (int, long, float)):
+			return self + (0-other)
+
 		ret = CounterMap()
 
 		for (key, counter) in self.iteritems():
@@ -144,6 +154,16 @@ class CounterMap(dict):
 		all_keys = list(sorted(all_keys))
 		return all_keys, numpy.array([[self[key][sub_key] for sub_key in all_keys]
 									  for key in all_keys])
+
+	@classmethod
+	def from_matrix(cls, keys, nparray):
+		cnter_map = CounterMap()
+
+		for i, key in enumerate(keys):
+			for j, sub_key in enumerate(keys):
+				cnter_map[key][subkey] = nparray[i][j]
+
+		return cnter_map
 
 
 def outer_product(a, b):
