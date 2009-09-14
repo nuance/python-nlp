@@ -10,7 +10,7 @@ from crp import CRPGibbsSampler
 from distributions import Gaussian
 
 class GaussianClusterer(CRPGibbsSampler):
-	def _cluster_log_probs(self, cluster_size, cluster_mean, cluster_covariance, new_point):
+	def _cluster_log_probs(self, cluster, cluster_size, cluster_mean, cluster_covariance, new_point):
 		""" Return the posterior, prior, and likelihood of new_point
 		being in the cluster of size cluster_size centered at cluster_mean
 		"""
@@ -45,7 +45,7 @@ class GaussianClusterer(CRPGibbsSampler):
 			cluster_mean = sum(cluster) / float(sizes[c_idx])
 			cluster_covariance = 1.0 / float(len(cluster) + 1) * sum(outer_product((pt - cluster_mean), (pt - cluster_mean)) for pt in cluster)
 
-			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(sizes[c_idx], cluster_mean, cluster_covariance, datum)
+			posteriors[c_idx], priors[c_idx], likelihoods[c_idx] = self._cluster_log_probs(cluster, sizes[c_idx], cluster_mean, cluster_covariance, datum)
 
 			if all(prob == float("-inf") for prob in (priors[c_idx], likelihoods[c_idx], posteriors[c_idx])):
 				del priors[c_idx]
@@ -65,7 +65,7 @@ class GaussianClusterer(CRPGibbsSampler):
 		for axis in datum:
 			covariance[axis] = 1.0
 
-		posteriors[new_cluster], priors[new_cluster], likelihoods[new_cluster] = self._cluster_log_probs(sizes[new_cluster], datum, covariance, datum)
+		posteriors[new_cluster], priors[new_cluster], likelihoods[new_cluster] = self._cluster_log_probs([], sizes[new_cluster], datum, covariance, datum)
 
 		for dist in priors, likelihoods, posteriors:
 			if not all(v <= 0.0 for v in dist.itervalues()):
